@@ -29,3 +29,19 @@ yarn-error.log*
 
 # Optional eslint cache
 .eslintcache
+
+# Capacitor
+/ios/App/Pods
+/ios/App/public
+/ios/App/App/public
+/ios/DerivedData
+/ios/App/App.xcarchive
+
+# Android
+/android/app/src/main/assets/public
+/android/app/build
+/android/build
+/android/capacitor-cordova-android-plugins
+
+# Ionic files
+.ionic
