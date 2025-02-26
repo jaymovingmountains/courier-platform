@@ -1,0 +1,219 @@
+.update-status-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.page-header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 1.8rem;
+}
+
+.back-button {
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.back-button:hover {
+  background-color: #e0e0e0;
+}
+
+.loading, .error-message, .success-message {
+  text-align: center;
+  padding: 40px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.error-message {
+  color: #d32f2f;
+  background-color: #ffebee;
+}
+
+.success-message {
+  color: #2e7d32;
+  background-color: #e8f5e9;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.redirect-message {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: normal;
+}
+
+.update-status-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.current-status-section {
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+
+.current-status-section h2 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 1.4rem;
+}
+
+.status-badge.large {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 500;
+  text-transform: capitalize;
+  font-size: 1rem;
+}
+
+.status-badge.approved {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-badge.assigned {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.picked_up {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.status-badge.in_transit {
+  background-color: #e8eaf6;
+  color: #3f51b5;
+}
+
+.status-badge.delivered {
+  background-color: #e0f2f1;
+  color: #00796b;
+}
+
+.no-transitions {
+  padding: 30px 20px;
+  text-align: center;
+  color: #666;
+}
+
+.status-update-form {
+  padding: 20px;
+}
+
+.form-section {
+  margin-bottom: 30px;
+}
+
+.form-section h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.4rem;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  background-color: #fff;
+}
+
+.form-group select {
+  height: 42px;
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.form-group select:disabled,
+.form-group textarea:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.update-button {
+  padding: 12px 24px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.update-button:hover:not(:disabled) {
+  background-color: #388e3c;
+}
+
+.update-button:disabled {
+  background-color: #a5d6a7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .back-button {
+    width: 100%;
+  }
+  
+  .update-button {
+    width: 100%;
+  }
+} 

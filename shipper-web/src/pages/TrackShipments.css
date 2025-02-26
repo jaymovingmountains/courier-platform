@@ -1,0 +1,296 @@
+.track-shipments-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.track-shipments-container h1 {
+  color: #2c3e50;
+  margin-bottom: 2rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #7f8c8d;
+  font-size: 1.1rem;
+}
+
+.error-message {
+  background-color: #fee;
+  color: #e74c3c;
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.no-shipments {
+  text-align: center;
+  padding: 3rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  color: #7f8c8d;
+}
+
+.tracking-content {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 768px) {
+  .tracking-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shipments List */
+.shipments-list {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.shipment-card {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.shipment-card:hover {
+  background-color: #f8f9fa;
+}
+
+.shipment-card.selected {
+  background-color: #e3f2fd;
+  border-left: 4px solid #3498db;
+}
+
+.shipment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.shipment-id {
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.pending {
+  background-color: #ffeaa7;
+  color: #d68910;
+}
+
+.status-badge.quoted {
+  background-color: #74b9ff;
+  color: #2c3e50;
+}
+
+.status-badge.approved {
+  background-color: #a8e6cf;
+  color: #27ae60;
+}
+
+.status-badge.assigned {
+  background-color: #dfe6e9;
+  color: #2d3436;
+}
+
+.status-badge.picked_up {
+  background-color: #81ecec;
+  color: #006266;
+}
+
+.status-badge.in_transit {
+  background-color: #a29bfe;
+  color: #4834d4;
+}
+
+.status-badge.delivered {
+  background-color: #55efc4;
+  color: #00b894;
+}
+
+.shipment-card-details {
+  font-size: 0.875rem;
+}
+
+.shipment-type {
+  color: #7f8c8d;
+  text-transform: capitalize;
+  margin-bottom: 0.25rem;
+}
+
+.shipment-addresses {
+  color: #2c3e50;
+}
+
+/* Shipment Details */
+.shipment-details {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.shipment-details h2 {
+  color: #2c3e50;
+  margin-bottom: 2rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.detail-group label {
+  display: block;
+  color: #7f8c8d;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.detail-group div {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.addresses-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+  .addresses-section {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+.addresses-section h3 {
+  color: #2c3e50;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.addresses-section p {
+  color: #2c3e50;
+  margin: 0.25rem 0;
+}
+
+/* Timeline */
+.tracking-timeline {
+  position: relative;
+  padding: 2rem 0;
+  margin-top: 2rem;
+}
+
+.progress-bar {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 4px;
+  background-color: #3498db;
+  transition: width 0.3s ease;
+}
+
+.timeline-steps {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+}
+
+.timeline-steps::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: #eee;
+  transform: translateY(-50%);
+}
+
+.timeline-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.step-icon {
+  width: 40px;
+  height: 40px;
+  background-color: white;
+  border: 2px solid #eee;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+.timeline-step.completed .step-icon {
+  border-color: #3498db;
+  background-color: #3498db;
+}
+
+.step-label {
+  color: #2c3e50;
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.step-description {
+  color: #7f8c8d;
+  font-size: 0.75rem;
+  text-align: center;
+  max-width: 120px;
+}
+
+@media (max-width: 768px) {
+  .step-description {
+    display: none;
+  }
+  
+  .timeline-step {
+    padding: 0 0.5rem;
+  }
+  
+  .step-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+  
+  .step-label {
+    font-size: 0.75rem;
+    text-align: center;
+  }
+} 

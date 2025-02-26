@@ -1,0 +1,354 @@
+# Admin Portal Development Rules
+
+## Component Structure
+- Use functional components with React hooks
+- Name components in PascalCase (e.g., `UserManagement.jsx`, `ShipmentApproval.jsx`)
+- One component per file
+- Place components in `src/components` directory
+- Group admin-specific components in `src/components/admin/`
+
+## React Hooks Usage
+```jsx
+// ✅ DO: Use hooks at the top level
+const UserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+  
+  // Component logic
+};
+
+// ❌ DON'T: Use hooks conditionally
+const BadComponent = () => {
+  if (condition) {
+    useEffect(() => {}); // This will cause errors
+  }
+};
+```
+
+## Styling with Tailwind CSS
+- Use Tailwind utility classes for styling
+- Follow admin dashboard design patterns
+- Maintain consistent spacing and color schemes
+```jsx
+// ✅ DO: Use Tailwind for admin layouts
+<div className="min-h-screen bg-gray-100">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col">
+      <div className="overflow-x-auto">
+        <div className="py-2 align-middle inline-block min-w-full">
+          {/* Table content */}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+// ❌ DON'T: Mix custom CSS with Tailwind unless necessary
+<div className="admin-layout custom-style">...</div>
+```
+
+## React Table Implementation
+- Use React Table for data management
+- Implement sorting, filtering, and pagination
+- Handle row selection and bulk actions
+```jsx
+// ✅ DO: Implement React Table with hooks
+const UserTable = () => {
+  const columns = useMemo(
+    () => [
+      {
+        Header: 'User',
+        accessor: 'username',
+        Cell: ({ value }) => (
+          <div className="flex items-center">
+            <span className="font-medium">{value}</span>
+          </div>
+        )
+      },
+      {
+        Header: 'Role',
+        accessor: 'role',
+        Filter: SelectColumnFilter,
+        filter: 'includes'
+      },
+      {
+        Header: 'Status',
+        accessor: 'status',
+        Cell: ({ value }) => (
+          <span className={`px-2 py-1 rounded-full ${getStatusColor(value)}`}>
+            {value}
+          </span>
+        )
+      }
+    ],
+    []
+  );
+
+  const {
+    getTableProps,
+    getTableBodyProps,
+    headerGroups,
+    rows,
+    prepareRow,
+    state,
+    setGlobalFilter
+  } = useTable(
+    {
+      columns,
+      data: users
+    },
+    useFilters,
+    useGlobalFilter,
+    useSortBy,
+    usePagination
+  );
+
+  return (
+    <div className="overflow-x-auto">
+      <table {...getTableProps()} className="min-w-full">
+        {/* Table implementation */}
+      </table>
+    </div>
+  );
+};
+```
+
+## API Calls with Axios
+- Use axios interceptors for admin authentication
+- Implement role-based access control
+- Handle admin-specific errors
+```javascript
+// api/adminApi.js
+import axios from 'axios';
+
+const adminApi = axios.create({
+  baseURL: process.env.REACT_APP_API_URL
+});
+
+adminApi.interceptors.request.use(config => {
+  const token = localStorage.getItem('adminToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+adminApi.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized admin access
+      localStorage.removeItem('adminToken');
+      window.location.href = '/admin/login';
+    }
+    if (error.response?.status === 403) {
+      // Handle insufficient privileges
+      console.error('Insufficient privileges');
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default adminApi;
+```
+
+## Accessibility Standards
+- Use semantic HTML elements
+- Implement ARIA labels and roles
+- Ensure keyboard navigation for tables
+- Maintain sufficient color contrast for admin interfaces
+```jsx
+// ✅ DO: Make tables accessible
+<div role="region" aria-label="User Management">
+  <table role="table" {...getTableProps()}>
+    <thead>
+      {headerGroups.map(headerGroup => (
+        <tr role="row" {...headerGroup.getHeaderGroupProps()}>
+          {headerGroup.headers.map(column => (
+            <th
+              role="columnheader"
+              {...column.getHeaderProps(column.getSortByToggleProps())}
+              aria-sort={column.isSorted ? (column.isSortedDesc ? 'descending' : 'ascending') : 'none'}
+            >
+              {column.render('Header')}
+            </th>
+          ))}
+        </tr>
+      ))}
+    </thead>
+    <tbody role="rowgroup">
+      {/* Table body implementation */}
+    </tbody>
+  </table>
+</div>
+```
+
+## Admin-Specific Components
+- Create reusable admin components
+- Implement consistent layouts
+- Use proper authorization checks
+```jsx
+// ✅ DO: Create admin-specific components
+const AdminLayout = ({ children }) => {
+  const { isAdmin } = useAuth();
+  
+  if (!isAdmin) {
+    return <Navigate to="/admin/login" />;
+  }
+  
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <AdminSidebar />
+      <main className="ml-64 p-8">
+        {children}
+      </main>
+    </div>
+  );
+};
+```
+
+## Error Handling
+- Implement admin-specific error boundaries
+- Display detailed error information
+- Log errors for debugging
+```jsx
+// ✅ DO: Create admin error components
+const AdminErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState(null);
+
+  if (hasError) {
+    return (
+      <div role="alert" className="bg-red-50 p-4 rounded-lg">
+        <h2 className="text-red-800 font-bold">Admin Console Error</h2>
+        <pre className="mt-2 text-sm text-red-700">{error.message}</pre>
+      </div>
+    );
+  }
+
+  return children;
+};
+```
+
+## Loading States
+- Implement table loading states
+- Show progress for bulk operations
+- Handle long-running admin tasks
+```jsx
+// ✅ DO: Create admin loading components
+const TableLoadingState = () => (
+  <div role="status" className="animate-pulse">
+    <div className="h-4 bg-gray-200 rounded-full mb-2.5"></div>
+    <div className="h-10 bg-gray-200 rounded-full mb-2.5"></div>
+    <span className="sr-only">Loading...</span>
+  </div>
+);
+```
+
+## Admin Dashboard Features
+- Implement data visualization
+- Create summary cards
+- Handle bulk operations
+```jsx
+// ✅ DO: Create dashboard components
+const DashboardStats = () => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <StatCard
+      title="Total Users"
+      value={totalUsers}
+      icon={<UsersIcon className="h-6 w-6" />}
+    />
+    <StatCard
+      title="Pending Approvals"
+      value={pendingApprovals}
+      icon={<ClockIcon className="h-6 w-6" />}
+    />
+    <StatCard
+      title="Active Shipments"
+      value={activeShipments}
+      icon={<TruckIcon className="h-6 w-6" />}
+    />
+  </div>
+);
+```
+
+## Performance Optimization
+- Implement table virtualization
+- Use pagination for large datasets
+- Optimize admin dashboard rendering
+```jsx
+// ✅ DO: Implement virtual scrolling for large tables
+const VirtualizedTable = () => {
+  const { rows, prepareRow } = useTable({
+    columns,
+    data,
+    initialState: { pageSize: 50 }
+  });
+
+  return (
+    <div className="h-screen">
+      <AutoSizer>
+        {({ height, width }) => (
+          <FixedSizeList
+            height={height}
+            itemCount={rows.length}
+            itemSize={35}
+            width={width}
+          >
+            {({ index, style }) => {
+              const row = rows[index];
+              prepareRow(row);
+              return (
+                <div {...row.getRowProps({ style })}>
+                  {row.cells.map(cell => cell.render('Cell'))}
+                </div>
+              );
+            }}
+          </FixedSizeList>
+        )}
+      </AutoSizer>
+    </div>
+  );
+};
+```
+
+## Documentation
+- Document admin features
+- Include role requirements
+- Add JSDoc comments for admin functions
+```jsx
+/**
+ * Admin dashboard component for managing users and permissions
+ * @requires role: 'admin'
+ * @param {Object} props
+ * @param {Function} props.onUserUpdate - Callback when user permissions are updated
+ */
+const AdminDashboard = ({ onUserUpdate }) => {
+  // Implementation
+};
+```
+
+## Security Practices
+- Implement role-based access control
+- Validate all admin actions
+- Log security-relevant events
+```jsx
+// ✅ DO: Implement security checks
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/admin/login" replace />;
+  }
+  
+  return <>{children}</>;
+};
+``` 

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Login API Test</h1>
+    
+    <div class="container">
+        <h2>Test Login with testshipper</h2>
+        <button onclick="testLogin('testshipper', 'shipper123')">Test Login</button>
+        <div id="result1"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Test Login with shipper1</h2>
+        <button onclick="testLogin('shipper1', 'shipper123')">Test Login</button>
+        <div id="result2"></div>
+    </div>
+    
+    <div class="container">
+        <h2>Test CORS</h2>
+        <button onclick="testCORS()">Test CORS</button>
+        <div id="corsResult"></div>
+    </div>
+
+    <script>
+        async function testLogin(username, password) {
+            const resultId = username === 'testshipper' ? 'result1' : 'result2';
+            const resultElement = document.getElementById(resultId);
+            
+            resultElement.innerHTML = '<p>Testing login...</p>';
+            
+            try {
+                console.log(`Attempting login with ${username}...`);
+                
+                const response = await fetch('http://localhost:3001/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-portal': 'shipper'
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultElement.innerHTML = `
+                        <p class="success">Login successful!</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.log('Login successful:', data);
+                } else {
+                    resultElement.innerHTML = `
+                        <p class="error">Login failed: ${data.error}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    console.error('Login failed:', data);
+                }
+            } catch (error) {
+                resultElement.innerHTML = `
+                    <p class="error">Error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+                console.error('Error:', error);
+            }
+        }
+        
+        async function testCORS() {
+            const corsResultElement = document.getElementById('corsResult');
+            
+            corsResultElement.innerHTML = '<p>Testing CORS...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:3001/api-health', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                corsResultElement.innerHTML = `
+                    <p class="success">CORS test successful!</p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                console.log('CORS test successful:', data);
+            } catch (error) {
+                corsResultElement.innerHTML = `
+                    <p class="error">CORS Error: ${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+                console.error('CORS Error:', error);
+            }
+        }
+    </script>
+</body>
+</html> 

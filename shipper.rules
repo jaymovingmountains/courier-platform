@@ -1,0 +1,261 @@
+# Shipper Platform Development Rules
+
+## Component Structure
+- Use functional components with React hooks
+- Name components in PascalCase (e.g., `ShipmentList.jsx`, `CreateShipment.jsx`)
+- One component per file
+- Place components in `src/components` directory
+- Group related components in subdirectories (e.g., `src/components/shipments/`)
+
+## React Hooks Usage
+```jsx
+// ✅ DO: Use hooks at the top level
+const ShipmentDetails = () => {
+  const [shipment, setShipment] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  useEffect(() => {
+    // Effect logic
+  }, [/* dependencies */]);
+  
+  // Component logic
+};
+
+// ❌ DON'T: Use hooks inside conditions
+const BadComponent = () => {
+  if (someCondition) {
+    useState(null); // This will cause errors
+  }
+};
+```
+
+## Styling with Tailwind CSS
+- Use Tailwind utility classes for styling
+- Follow mobile-first responsive design
+- Use consistent spacing and color scales
+```jsx
+// ✅ DO: Use Tailwind classes
+<div className="flex flex-col md:flex-row gap-4 p-4 bg-white rounded-lg shadow">
+  <h1 className="text-2xl font-bold text-gray-900">Title</h1>
+</div>
+
+// ❌ DON'T: Mix Tailwind with custom CSS unless necessary
+<div className="flex custom-style">...</div>
+```
+
+## Form Handling with Formik & Yup
+- Use Formik for form management
+- Define Yup schemas for validation
+- Handle form submission asynchronously
+```jsx
+// ✅ DO: Use Formik with Yup validation
+const validationSchema = Yup.object().shape({
+  title: Yup.string()
+    .required('Title is required')
+    .min(3, 'Title must be at least 3 characters'),
+  email: Yup.string()
+    .email('Invalid email format')
+    .required('Email is required')
+});
+
+const ShipmentForm = () => {
+  return (
+    <Formik
+      initialValues={{ title: '', email: '' }}
+      validationSchema={validationSchema}
+      onSubmit={handleSubmit}
+    >
+      {({ errors, touched }) => (
+        <Form>
+          <Field
+            name="title"
+            className={`form-input ${errors.title && touched.title ? 'border-red-500' : ''}`}
+          />
+          <ErrorMessage name="title" component="div" className="text-red-500" />
+        </Form>
+      )}
+    </Formik>
+  );
+};
+```
+
+## API Calls with Axios
+- Use axios interceptors for token management
+- Create an API service layer
+- Handle errors consistently
+```javascript
+// api/axios.js
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL
+});
+
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized access
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;
+```
+
+## Accessibility Standards
+- Use semantic HTML elements
+- Include ARIA labels and roles
+- Ensure keyboard navigation
+- Maintain sufficient color contrast
+```jsx
+// ✅ DO: Follow accessibility guidelines
+<button
+  aria-label="Create shipment"
+  className="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 focus:ring-2"
+  onClick={handleCreate}
+>
+  Create
+</button>
+
+// ✅ DO: Use semantic HTML with proper roles
+<nav role="navigation" aria-label="Main navigation">
+  <ul className="flex gap-4">
+    <li><a href="/dashboard">Dashboard</a></li>
+  </ul>
+</nav>
+
+// ✅ DO: Provide alternative text for images
+<img src={logo} alt="Company logo" className="w-32" />
+```
+
+## State Management
+- Use React Context for global state
+- Keep component state local when possible
+- Use reducers for complex state logic
+```jsx
+// ✅ DO: Create context with proper typing
+export const ShipmentContext = createContext();
+
+export const ShipmentProvider = ({ children }) => {
+  const [shipments, dispatch] = useReducer(shipmentReducer, initialState);
+  
+  return (
+    <ShipmentContext.Provider value={{ shipments, dispatch }}>
+      {children}
+    </ShipmentContext.Provider>
+  );
+};
+```
+
+## Error Handling
+- Implement error boundaries
+- Display user-friendly error messages
+- Log errors for debugging
+```jsx
+// ✅ DO: Create reusable error components
+const ErrorMessage = ({ error }) => (
+  <div role="alert" className="bg-red-50 text-red-700 p-4 rounded">
+    <h2 className="font-bold">Error</h2>
+    <p>{error.message}</p>
+  </div>
+);
+```
+
+## Loading States
+- Show loading indicators for async operations
+- Use skeleton loaders for content
+- Prevent interaction during loading
+```jsx
+// ✅ DO: Implement loading states
+const LoadingSpinner = () => (
+  <div role="status" className="flex justify-center">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+    <span className="sr-only">Loading...</span>
+  </div>
+);
+```
+
+## Code Organization
+- Group related files together
+- Use consistent file naming
+- Maintain a clear project structure
+```
+src/
+  ├── components/
+  │   ├── common/
+  │   ├── shipments/
+  │   └── forms/
+  ├── hooks/
+  ├── context/
+  ├── services/
+  ├── utils/
+  └── pages/
+```
+
+## Performance Optimization
+- Memoize expensive calculations
+- Lazy load components when appropriate
+- Optimize re-renders
+```jsx
+// ✅ DO: Use React.memo for pure components
+const ShipmentCard = React.memo(({ shipment }) => (
+  <div className="p-4 border rounded">
+    {/* Card content */}
+  </div>
+));
+
+// ✅ DO: Lazy load routes
+const ShipmentDetails = React.lazy(() => import('./pages/ShipmentDetails'));
+```
+
+## Testing
+- Write unit tests for components
+- Test user interactions
+- Mock API calls
+```javascript
+// ✅ DO: Write comprehensive tests
+describe('ShipmentForm', () => {
+  it('should validate required fields', async () => {
+    render(<ShipmentForm />);
+    // Test implementation
+  });
+});
+```
+
+## Documentation
+- Document complex components
+- Include prop types
+- Add JSDoc comments for functions
+```jsx
+/**
+ * Displays shipment details with status and actions
+ * @param {Object} props
+ * @param {string} props.id - Shipment ID
+ * @param {string} props.status - Current status
+ */
+const ShipmentDetails = ({ id, status }) => {
+  // Component implementation
+};
+```
+
+## Git Practices
+- Use meaningful commit messages
+- Create feature branches
+- Review code before merging
+```bash
+# ✅ DO: Write descriptive commit messages
+git commit -m "feat(shipments): add status tracking functionality"
+git commit -m "fix(auth): resolve token refresh issue"
+``` 

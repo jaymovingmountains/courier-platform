@@ -1,0 +1,338 @@
+# Driver Portal Development Rules
+
+## Component Structure
+- Use functional components with React hooks
+- Name components in PascalCase (e.g., `JobMap.jsx`, `DeliveryStatus.jsx`)
+- One component per file
+- Place components in `src/components` directory
+- Group driver-specific components in `src/components/driver/`
+
+## React Hooks Usage
+```jsx
+// ✅ DO: Use hooks at the top level
+const JobDetails = () => {
+  const [job, setJob] = useState(null);
+  const [location, setLocation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    // Get driver's current location
+    navigator.geolocation.getCurrentPosition(
+      position => setLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      })
+    );
+  }, []);
+  
+  // Component logic
+};
+
+// ❌ DON'T: Use hooks inside conditions
+const BadComponent = () => {
+  if (someCondition) {
+    useEffect(() => {}); // This will cause errors
+  }
+};
+```
+
+## Styling with Tailwind CSS
+- Use Tailwind utility classes for styling
+- Follow mobile-first design for driver interface
+- Maintain consistent spacing and color schemes
+```jsx
+// ✅ DO: Use Tailwind for driver layouts
+<div className="min-h-screen bg-gray-50">
+  <div className="max-w-lg mx-auto px-4 py-6">
+    <div className="bg-white rounded-lg shadow-md p-4">
+      <h2 className="text-xl font-semibold text-gray-800">Current Delivery</h2>
+      {/* Job content */}
+    </div>
+  </div>
+</div>
+
+// ❌ DON'T: Mix custom CSS with Tailwind unless necessary
+<div className="driver-layout custom-style">...</div>
+```
+
+## Google Maps Integration
+- Use React Google Maps API
+- Implement route visualization
+- Show real-time location updates
+```jsx
+// ✅ DO: Implement map components
+const DeliveryMap = ({ pickup, delivery, currentLocation }) => {
+  const mapRef = useRef(null);
+  const [directions, setDirections] = useState(null);
+
+  useEffect(() => {
+    if (!pickup || !delivery) return;
+
+    const directionsService = new google.maps.DirectionsService();
+    directionsService.route(
+      {
+        origin: pickup,
+        destination: delivery,
+        waypoints: currentLocation ? [{ location: currentLocation }] : [],
+        travelMode: google.maps.TravelMode.DRIVING,
+      },
+      (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK) {
+          setDirections(result);
+        }
+      }
+    );
+  }, [pickup, delivery, currentLocation]);
+
+  return (
+    <div className="h-64 md:h-96 rounded-lg overflow-hidden">
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={currentLocation}
+        zoom={13}
+        options={{
+          zoomControl: true,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        }}
+      >
+        {directions && <DirectionsRenderer directions={directions} />}
+      </GoogleMap>
+    </div>
+  );
+};
+```
+
+## API Calls with Axios
+- Use axios interceptors for driver authentication
+- Handle location updates
+- Manage job status changes
+```javascript
+// api/driverApi.js
+import axios from 'axios';
+
+const driverApi = axios.create({
+  baseURL: process.env.REACT_APP_API_URL
+});
+
+driverApi.interceptors.request.use(config => {
+  const token = localStorage.getItem('driverToken');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+driverApi.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized driver access
+      localStorage.removeItem('driverToken');
+      window.location.href = '/driver/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const updateLocation = async (location) => {
+  return driverApi.post('/driver/location', location);
+};
+
+export const updateJobStatus = async (jobId, status) => {
+  return driverApi.put(`/jobs/${jobId}/status`, { status });
+};
+
+export default driverApi;
+```
+
+## Accessibility Standards
+- Use semantic HTML elements
+- Implement ARIA labels and roles
+- Ensure keyboard navigation
+- Provide clear status updates
+```jsx
+// ✅ DO: Make job cards accessible
+const JobCard = ({ job, onStatusUpdate }) => (
+  <div
+    role="article"
+    aria-labelledby={`job-${job.id}-title`}
+    className="bg-white rounded-lg shadow p-4"
+  >
+    <h3 id={`job-${job.id}-title`} className="text-lg font-semibold">
+      Delivery #{job.id}
+    </h3>
+    
+    <div role="status" aria-live="polite">
+      Current Status: {job.status}
+    </div>
+    
+    <button
+      aria-label={`Update status for job ${job.id}`}
+      onClick={() => onStatusUpdate(job.id)}
+      className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:ring-2"
+    >
+      Update Status
+    </button>
+  </div>
+);
+```
+
+## Location Tracking
+- Implement background location updates
+- Handle geolocation permissions
+- Optimize battery usage
+```jsx
+// ✅ DO: Implement location tracking
+const useLocationTracking = (isActive) => {
+  const [location, setLocation] = useState(null);
+  const watchId = useRef(null);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    // Request permission and start tracking
+    if ('geolocation' in navigator) {
+      watchId.current = navigator.geolocation.watchPosition(
+        position => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            timestamp: new Date().toISOString()
+          };
+          setLocation(newLocation);
+          updateLocation(newLocation);
+        },
+        error => console.error('Location error:', error),
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    return () => {
+      if (watchId.current) {
+        navigator.geolocation.clearWatch(watchId.current);
+      }
+    };
+  }, [isActive]);
+
+  return location;
+};
+```
+
+## Job Status Management
+- Implement clear status transitions
+- Validate status updates
+- Provide feedback for actions
+```jsx
+// ✅ DO: Create status update components
+const StatusUpdate = ({ jobId, currentStatus }) => {
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleStatusUpdate = async (newStatus) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      await updateJobStatus(jobId, newStatus);
+      // Handle success
+    } catch (err) {
+      setError('Failed to update status. Please try again.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="status-controls" role="region" aria-label="Job Status Updates">
+      {/* Status update UI */}
+    </div>
+  );
+};
+```
+
+## Offline Support
+- Implement service workers
+- Cache map data
+- Queue status updates
+```javascript
+// service-worker.js
+const CACHE_NAME = 'driver-app-cache-v1';
+const urlsToCache = [
+  '/',
+  '/static/js/main.bundle.js',
+  '/static/css/main.bundle.css',
+  '/offline.html'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => response || fetch(event.request))
+  );
+});
+```
+
+## Performance Optimization
+- Optimize map rendering
+- Implement lazy loading
+- Minimize battery usage
+```jsx
+// ✅ DO: Optimize map components
+const JobMap = React.memo(({ location }) => {
+  // Map implementation
+});
+
+// ✅ DO: Lazy load non-critical components
+const JobHistory = React.lazy(() => import('./JobHistory'));
+```
+
+## Error Handling
+- Handle network errors
+- Manage location errors
+- Provide offline feedback
+```jsx
+// ✅ DO: Create error boundaries for driver features
+const DriverErrorBoundary = ({ children }) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div role="alert" className="bg-red-50 p-4 rounded-lg">
+        <h2 className="text-red-800 font-bold">Error</h2>
+        <p>Unable to load driver features. Please check your connection.</p>
+      </div>
+    );
+  }
+
+  return children;
+};
+```
+
+## Documentation
+- Document location tracking requirements
+- Include offline capabilities
+- Add JSDoc comments for driver functions
+```jsx
+/**
+ * Driver job component with real-time location tracking
+ * @requires permission: 'geolocation'
+ * @param {Object} props
+ * @param {string} props.jobId - Active job ID
+ * @param {Function} props.onLocationUpdate - Location update callback
+ */
+const DriverJob = ({ jobId, onLocationUpdate }) => {
+  // Implementation
+};
+``` 

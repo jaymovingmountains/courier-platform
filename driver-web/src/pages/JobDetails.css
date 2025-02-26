@@ -1,0 +1,55 @@
+/* JobDetails.css - Minimal CSS for compatibility with Tailwind */
+
+/* Status badge colors - these are still needed for the status-specific styling */
+.status-badge.approved {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-badge.assigned {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.picked_up {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.status-badge.in_transit {
+  background-color: #e8eaf6;
+  color: #3f51b5;
+}
+
+.status-badge.delivered {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* Dark mode compatibility */
+@media (prefers-color-scheme: dark) {
+  .status-badge.approved {
+    background-color: rgba(25, 118, 210, 0.2);
+    color: #90caf9;
+  }
+
+  .status-badge.assigned {
+    background-color: rgba(46, 125, 50, 0.2);
+    color: #a5d6a7;
+  }
+
+  .status-badge.picked_up {
+    background-color: rgba(245, 124, 0, 0.2);
+    color: #ffcc80;
+  }
+
+  .status-badge.in_transit {
+    background-color: rgba(63, 81, 181, 0.2);
+    color: #9fa8da;
+  }
+
+  .status-badge.delivered {
+    background-color: rgba(46, 125, 50, 0.2);
+    color: #a5d6a7;
+  }
+} 
