@@ -382,9 +382,6 @@ class CoreDataManager {
         
         job.id = Int64(jobDTO.id)
         job.shipmentId = Int64(jobDTO.shipmentId)
-        if let driverId = jobDTO.driverId {
-            job.driverId = Int64(driverId)
-        }
         job.status = jobDTO.status
         job.province = jobDTO.province
         
@@ -414,7 +411,7 @@ class CoreDataManager {
         return JobDTO(
             id: Int(job.id),
             shipmentId: Int(job.shipmentId),
-            driverId: job.driverId != 0 ? Int(job.driverId) : nil,
+            driverId: nil,
             status: job.status ?? "",
             shipmentType: shipment?.shipmentType,
             pickupAddress: shipment?.pickupAddress ?? "",
@@ -477,13 +474,8 @@ class CoreDataManager {
         shipment.deliveryCity = shipmentDTO.deliveryAddress.city
         shipment.deliveryPostalCode = shipmentDTO.deliveryAddress.zipCode
         
-        // Set dates and other fields
+        // Set date field
         shipment.createdAt = shipmentDTO.createdAt
-        shipment.updatedAt = shipmentDTO.updatedAt
-        
-        if let weight = shipmentDTO.weight {
-            shipment.weight = weight
-        }
         
         saveContext()
     }
@@ -534,16 +526,16 @@ class CoreDataManager {
         
         return ShipmentDTO(
             id: String(shipment.id),
-            trackingNumber: shipment.trackingNumber ?? "",
+            trackingNumber: "",
             status: status,
-            description: shipment.descript ?? "",
-            weight: shipment.weight,
+            description: "",
+            weight: nil,
             dimensions: nil,
             pickupAddress: pickupAddress,
             deliveryAddress: deliveryAddress,
             createdAt: shipment.createdAt ?? Date(),
-            updatedAt: shipment.updatedAt ?? Date(),
-            estimatedDeliveryTime: shipment.estimatedDeliveryTime
+            updatedAt: Date(),
+            estimatedDeliveryTime: nil
         )
     }
     
@@ -571,6 +563,19 @@ class CoreDataManager {
         } catch {
             print("Error fetching shipments by status: \(error)")
             return []
+        }
+    }
+    
+    /// Define VehicleDTO structure here to resolve missing type error
+    struct VehicleDTO: Identifiable, Codable {
+        let id: Int
+        let vehicleName: String
+        let licensePlate: String
+        
+        enum CodingKeys: String, CodingKey {
+            case id
+            case vehicleName = "vehicle_name"
+            case licensePlate = "license_plate"
         }
     }
     
