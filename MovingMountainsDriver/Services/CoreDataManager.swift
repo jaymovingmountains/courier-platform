@@ -378,7 +378,16 @@ class CoreDataManager {
     
     /// Save a JobDTO to Core Data
     func saveJob(_ jobDTO: JobDTO) {
-        let job = jobDTO.toManagedObject(context: context)
+        let job = fetchJob(withId: Int64(jobDTO.id)) ?? NSEntityDescription.insertNewObject(forEntityName: "Job", into: context) as! Job
+        
+        job.id = Int64(jobDTO.id)
+        job.shipmentId = Int64(jobDTO.shipmentId)
+        if let driverId = jobDTO.driverId {
+            job.driverId = Int64(driverId)
+        }
+        job.status = jobDTO.status
+        job.province = jobDTO.province
+        
         saveContext()
     }
     
@@ -389,7 +398,7 @@ class CoreDataManager {
         
         do {
             if let job = try context.fetch(fetchRequest).first {
-                return JobDTO.fromManagedObject(job)
+                return convertJobToDTO(job)
             }
         } catch {
             print("Error fetching job: \(error)")
@@ -398,13 +407,38 @@ class CoreDataManager {
         return nil
     }
     
+    /// Convert Job entity to JobDTO
+    private func convertJobToDTO(_ job: Job) -> JobDTO {
+        let shipment = job.shipment
+        
+        return JobDTO(
+            id: Int(job.id),
+            shipmentId: Int(job.shipmentId),
+            driverId: job.driverId != 0 ? Int(job.driverId) : nil,
+            status: job.status ?? "",
+            shipmentType: shipment?.shipmentType,
+            pickupAddress: shipment?.pickupAddress ?? "",
+            pickupCity: shipment?.pickupCity ?? "",
+            pickupPostalCode: shipment?.pickupPostalCode ?? "",
+            deliveryAddress: shipment?.deliveryAddress ?? "",
+            deliveryCity: shipment?.deliveryCity ?? "",
+            deliveryPostalCode: shipment?.deliveryPostalCode ?? "",
+            quoteAmount: shipment?.quoteAmount,
+            createdAt: shipment?.createdAt?.description ?? "",
+            province: job.province,
+            vehicleId: shipment?.vehicleId != 0 ? Int(shipment?.vehicleId ?? 0) : nil,
+            vehicleName: shipment?.vehicle?.vehicleName,
+            licensePlate: shipment?.vehicle?.licensePlate
+        )
+    }
+    
     /// Fetch all JobDTOs
     func getAllJobs() -> [JobDTO] {
         let fetchRequest: NSFetchRequest<Job> = Job.fetchRequest()
         
         do {
             let jobs = try context.fetch(fetchRequest)
-            return jobs.map { JobDTO.fromManagedObject($0) }
+            return jobs.map { convertJobToDTO($0) }
         } catch {
             print("Error fetching jobs: \(error)")
             return []
@@ -418,7 +452,7 @@ class CoreDataManager {
         
         do {
             let jobs = try context.fetch(fetchRequest)
-            return jobs.map { JobDTO.fromManagedObject($0) }
+            return jobs.map { convertJobToDTO($0) }
         } catch {
             print("Error fetching jobs by status: \(error)")
             return []
@@ -427,7 +461,30 @@ class CoreDataManager {
     
     /// Save a ShipmentDTO to Core Data
     func saveShipment(_ shipmentDTO: ShipmentDTO) {
-        let shipment = shipmentDTO.toManagedObject(context: context)
+        // Create a shipment ID from the string ID
+        let idInt = Int64(shipmentDTO.id) ?? 0
+        let shipment = fetchShipment(withId: idInt) ?? NSEntityDescription.insertNewObject(forEntityName: "Shipment", into: context) as! Shipment
+        
+        shipment.id = idInt
+        shipment.status = shipmentDTO.status.rawValue
+        
+        // Set address fields
+        shipment.pickupAddress = shipmentDTO.pickupAddress.street
+        shipment.pickupCity = shipmentDTO.pickupAddress.city
+        shipment.pickupPostalCode = shipmentDTO.pickupAddress.zipCode
+        
+        shipment.deliveryAddress = shipmentDTO.deliveryAddress.street
+        shipment.deliveryCity = shipmentDTO.deliveryAddress.city
+        shipment.deliveryPostalCode = shipmentDTO.deliveryAddress.zipCode
+        
+        // Set dates and other fields
+        shipment.createdAt = shipmentDTO.createdAt
+        shipment.updatedAt = shipmentDTO.updatedAt
+        
+        if let weight = shipmentDTO.weight {
+            shipment.weight = weight
+        }
+        
         saveContext()
     }
     
@@ -438,7 +495,7 @@ class CoreDataManager {
         
         do {
             if let shipment = try context.fetch(fetchRequest).first {
-                return ShipmentDTO.fromManagedObject(shipment)
+                return convertShipmentToDTO(shipment)
             }
         } catch {
             print("Error fetching shipment: \(error)")
@@ -447,13 +504,56 @@ class CoreDataManager {
         return nil
     }
     
+    /// Convert Shipment entity to ShipmentDTO
+    private func convertShipmentToDTO(_ shipment: Shipment) -> ShipmentDTO? {
+        // Create pickup address
+        let pickupAddress = Address(
+            street: shipment.pickupAddress ?? "",
+            city: shipment.pickupCity ?? "",
+            state: "",
+            zipCode: shipment.pickupPostalCode ?? "",
+            country: "",
+            latitude: nil,
+            longitude: nil
+        )
+        
+        // Create delivery address
+        let deliveryAddress = Address(
+            street: shipment.deliveryAddress ?? "",
+            city: shipment.deliveryCity ?? "",
+            state: "",
+            zipCode: shipment.deliveryPostalCode ?? "",
+            country: "",
+            latitude: nil,
+            longitude: nil
+        )
+        
+        // Get status
+        let statusValue = shipment.status ?? "pending"
+        let status = ShipmentStatus(rawValue: statusValue) ?? .pending
+        
+        return ShipmentDTO(
+            id: String(shipment.id),
+            trackingNumber: shipment.trackingNumber ?? "",
+            status: status,
+            description: shipment.descript ?? "",
+            weight: shipment.weight,
+            dimensions: nil,
+            pickupAddress: pickupAddress,
+            deliveryAddress: deliveryAddress,
+            createdAt: shipment.createdAt ?? Date(),
+            updatedAt: shipment.updatedAt ?? Date(),
+            estimatedDeliveryTime: shipment.estimatedDeliveryTime
+        )
+    }
+    
     /// Fetch all ShipmentDTOs
     func getAllShipments() -> [ShipmentDTO] {
         let fetchRequest: NSFetchRequest<Shipment> = Shipment.fetchRequest()
         
         do {
             let shipments = try context.fetch(fetchRequest)
-            return shipments.map { ShipmentDTO.fromManagedObject($0) }
+            return shipments.compactMap { convertShipmentToDTO($0) }
         } catch {
             print("Error fetching shipments: \(error)")
             return []
@@ -467,7 +567,7 @@ class CoreDataManager {
         
         do {
             let shipments = try context.fetch(fetchRequest)
-            return shipments.map { ShipmentDTO.fromManagedObject($0) }
+            return shipments.compactMap { convertShipmentToDTO($0) }
         } catch {
             print("Error fetching shipments by status: \(error)")
             return []
@@ -476,7 +576,12 @@ class CoreDataManager {
     
     /// Save a VehicleDTO to Core Data
     func saveVehicle(_ vehicleDTO: VehicleDTO) {
-        let vehicle = vehicleDTO.toManagedObject(context: context)
+        let vehicle = fetchVehicle(withId: Int64(vehicleDTO.id)) ?? NSEntityDescription.insertNewObject(forEntityName: "Vehicle", into: context) as! Vehicle
+        
+        vehicle.id = Int64(vehicleDTO.id)
+        vehicle.vehicleName = vehicleDTO.vehicleName
+        vehicle.licensePlate = vehicleDTO.licensePlate
+        
         saveContext()
     }
     
@@ -487,7 +592,7 @@ class CoreDataManager {
         
         do {
             if let vehicle = try context.fetch(fetchRequest).first {
-                return VehicleDTO.fromManagedObject(vehicle)
+                return convertVehicleToDTO(vehicle)
             }
         } catch {
             print("Error fetching vehicle: \(error)")
@@ -496,13 +601,22 @@ class CoreDataManager {
         return nil
     }
     
+    /// Convert Vehicle entity to VehicleDTO
+    private func convertVehicleToDTO(_ vehicle: Vehicle) -> VehicleDTO {
+        return VehicleDTO(
+            id: Int(vehicle.id),
+            vehicleName: vehicle.vehicleName ?? "",
+            licensePlate: vehicle.licensePlate ?? ""
+        )
+    }
+    
     /// Fetch all VehicleDTOs
     func getAllVehicles() -> [VehicleDTO] {
         let fetchRequest: NSFetchRequest<Vehicle> = Vehicle.fetchRequest()
         
         do {
             let vehicles = try context.fetch(fetchRequest)
-            return vehicles.map { VehicleDTO.fromManagedObject($0) }
+            return vehicles.map { convertVehicleToDTO($0) }
         } catch {
             print("Error fetching vehicles: \(error)")
             return []
