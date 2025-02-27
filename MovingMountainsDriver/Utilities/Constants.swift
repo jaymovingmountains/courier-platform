@@ -1,10 +1,82 @@
 import Foundation
 
 struct APIConstants {
+    // Base URL for API connections
     static let baseURL = "http://localhost:3001"
+    
+    // Authentication endpoints
     static let loginEndpoint = "/login"
+    static let driverLoginEndpoint = "/driver/login"
+    static let refreshTokenEndpoint = "/refresh-token"
+    
+    // Core resource endpoints matching server.js exactly
     static let jobsEndpoint = "/jobs"
     static let shipmentsEndpoint = "/shipments"
+    static let driversEndpoint = "/drivers"
+    static let driverLocationEndpoint = "/driver/location"
+    
+    // URL builder methods for job-related operations
+    
+    /// Returns job details endpoint with ID: /jobs/:id
+    static func jobDetailsURL(id: Int) -> String {
+        return "\(jobsEndpoint)/\(id)"
+    }
+    
+    /// Returns job acceptance endpoint: /jobs/:id/accept
+    static func jobAcceptURL(id: Int) -> String {
+        return "\(jobsEndpoint)/\(id)/accept"
+    }
+    
+    /// Returns job status update endpoint: /jobs/:id/status
+    static func jobStatusUpdateURL(id: Int) -> String {
+        return "\(jobsEndpoint)/\(id)/status"
+    }
+    
+    // URL builder methods for shipment-related operations
+    
+    /// Returns shipment details endpoint with ID: /shipments/:id
+    static func shipmentDetailsURL(id: Int) -> String {
+        return "\(shipmentsEndpoint)/\(id)"
+    }
+    
+    /// Returns vehicle assignment endpoint for a shipment: /shipments/:id/vehicle
+    static func shipmentVehicleURL(id: Int) -> String {
+        return "\(shipmentsEndpoint)/\(id)/vehicle"
+    }
+    
+    /// Returns label endpoint for a shipment: /shipments/:id/label
+    static func shipmentLabelURL(id: Int) -> String {
+        return "\(shipmentsEndpoint)/\(id)/label"
+    }
+    
+    /// Returns invoice endpoint for a shipment: /shipments/:id/invoice
+    static func shipmentInvoiceURL(id: Int) -> String {
+        return "\(shipmentsEndpoint)/\(id)/invoice"
+    }
+    
+    /// Constructs query params for job filtering
+    static func jobsWithParams(status: String? = nil, assigned: Bool? = nil) -> String {
+        var params: [String] = []
+        
+        if let status = status {
+            params.append("status=\(status)")
+        }
+        
+        if let assigned = assigned {
+            params.append("assigned=\(assigned)")
+        }
+        
+        if params.isEmpty {
+            return jobsEndpoint
+        } else {
+            return "\(jobsEndpoint)?\(params.joined(separator: "&"))"
+        }
+    }
+    
+    // Helper to build full URL strings
+    static func fullURL(for endpoint: String) -> String {
+        return "\(baseURL)\(endpoint)"
+    }
 }
 
 struct NotificationConstants {

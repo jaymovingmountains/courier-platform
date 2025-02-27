@@ -18,11 +18,31 @@ struct DashboardView: View {
                 
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Active job section
-                        if let activeJob = viewModel.activeJob {
-                            ActiveJobCard(job: activeJob, apiClient: apiClient)
-                        } else {
-                            NoActiveJobView()
+                        // Active jobs section
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text("Active Jobs")
+                                    .font(.headline)
+                                
+                                Spacer()
+                                
+                                Text("\(viewModel.activeJobs.count)")
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 4)
+                                    .background(Color.accentColor)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                            }
+                            .padding(.horizontal)
+                            
+                            if viewModel.activeJobs.isEmpty && !viewModel.isLoading {
+                                NoActiveJobView()
+                            } else {
+                                ForEach(viewModel.activeJobs) { job in
+                                    ActiveJobCard(job: job, apiClient: apiClient)
+                                }
+                            }
                         }
                         
                         // Available jobs section
@@ -50,7 +70,7 @@ struct DashboardView: View {
                                 )
                             } else {
                                 ForEach(viewModel.availableJobs) { job in
-                                    JobCard(job: job, apiClient: apiClient, onAccept: { viewModel.acceptJob(id: job.id) })
+                                    JobCard(job: job, apiClient: apiClient, onAccept: { viewModel.acceptJob(jobId: job.id) })
                                 }
                             }
                         }
@@ -79,18 +99,36 @@ struct DashboardView: View {
                 }
             }
             .alert(isPresented: Binding<Bool>(
-                get: { viewModel.errorMessage != nil },
-                set: { if !$0 { viewModel.errorMessage = nil } }
+                get: { viewModel.showError },
+                set: { if !$0 { viewModel.showError = false; viewModel.error = nil } }
             )) {
                 Alert(
-                    title: Text("Error"),
-                    message: Text(viewModel.errorMessage ?? ""),
+                    title: Text(errorAlertTitle),
+                    message: Text(viewModel.error?.userMessage ?? "An unknown error occurred"),
                     dismissButton: .default(Text("OK"))
                 )
             }
         }
         .onAppear {
             viewModel.fetchJobs()
+        }
+    }
+    
+    // Custom error alert title based on error type
+    private var errorAlertTitle: String {
+        guard let error = viewModel.error else { return "Error" }
+        
+        switch error {
+        case .jobAlreadyAccepted:
+            return "Job Unavailable"
+        case .authentication, .authorization:
+            return "Authentication Error"
+        case .network, .offline, .timeout:
+            return "Connection Error"
+        case .server:
+            return "Server Error"
+        default:
+            return "Error"
         }
     }
 }
@@ -143,7 +181,7 @@ struct ActiveJobCard: View {
             Divider()
             
             HStack {
-                StatusBadge(status: job.status)
+                StatusBadge(status: job.status.rawValue)
                 
                 Spacer()
                 

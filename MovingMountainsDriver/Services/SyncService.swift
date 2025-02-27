@@ -119,7 +119,7 @@ class SyncService: ObservableObject {
         
         switch action.actionType {
         case "updateJobStatus":
-            processUpdateStatusAction(action)
+            processStatusUpdateAction(action)
         case "acceptJob":
             processAcceptJobAction(action)
         default:
@@ -130,27 +130,24 @@ class SyncService: ObservableObject {
         }
     }
     
-    private func processUpdateStatusAction(_ action: SyncAction) {
+    private func processStatusUpdateAction(_ action: SyncAction) {
         // Implementation of status update sync
         struct StatusUpdate: Codable {
             let jobId: Int
             let status: String
-            let notes: String
         }
         
         do {
-            let update = try JSONDecoder().decode(StatusUpdate.self, from: action.payload)
+            // Replace with underscore to acknowledge we're decoding but not using the result
+            _ = try JSONDecoder().decode(StatusUpdate.self, from: action.payload)
             
             // Call API
             Task {
-                do {
-                    // Process update
-                    pendingActions.removeFirst()
-                    savePendingActions()
-                    processNextAction()
-                } catch {
-                    isSyncing = false
-                }
+                // Since no errors are thrown in this block, remove the try/catch
+                // Process update
+                pendingActions.removeFirst()
+                savePendingActions()
+                processNextAction()
             }
         } catch {
             // Handle decoding error
@@ -167,18 +164,16 @@ class SyncService: ObservableObject {
         }
         
         do {
-            let accept = try JSONDecoder().decode(JobAccept.self, from: action.payload)
+            // Replace with underscore to acknowledge we're decoding but not using the result
+            _ = try JSONDecoder().decode(JobAccept.self, from: action.payload)
             
             // Call API
             Task {
-                do {
-                    // Process update
-                    pendingActions.removeFirst()
-                    savePendingActions()
-                    processNextAction()
-                } catch {
-                    isSyncing = false
-                }
+                // Since no errors are thrown in this block, remove the try/catch
+                // Process update
+                pendingActions.removeFirst()
+                savePendingActions()
+                processNextAction()
             }
         } catch {
             // Handle decoding error

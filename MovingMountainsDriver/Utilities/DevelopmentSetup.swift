@@ -10,7 +10,7 @@ class MockDataGenerator {
         for i in 1...count {
             let job = JobDTO(
                 id: i,
-                shipmentId: i,
+                shipperId: i,
                 driverId: i % 2 == 0 ? 1 : nil,
                 status: i % 4 == 0 ? "assigned" : 
                        i % 4 == 1 ? "picked_up" : 

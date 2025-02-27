@@ -67,7 +67,8 @@ struct LoginView: View {
 }
 
 // Create LoginViewModel
-class LoginViewModel: ObservableObject {
+@MainActor
+final class LoginViewModel: ObservableObject {
     @Published var username = ""
     @Published var password = ""
     @Published var isLoggingIn = false
@@ -84,9 +85,7 @@ class LoginViewModel: ObservableObject {
         Task {
             await authService.login(username: username, password: password)
             
-            DispatchQueue.main.async {
-                self.isLoggingIn = false
-            }
+            self.isLoggingIn = false
         }
     }
 } 

@@ -31,7 +31,7 @@ class CoreDataManager {
     // MARK: - Job Operations
     
     /// Save a job to Core Data
-    func saveJob(id: Int64, shipmentId: Int64, status: String, assignedAt: Date?, completedAt: Date?, province: String?) {
+    func saveJob(id: Int64, shipperId: Int64, status: String, assignedAt: Date?, completedAt: Date?, province: String?) -> Job {
         // Check if job already exists
         if let existingJob = fetchJob(withId: id) {
             // Update existing job
@@ -39,18 +39,20 @@ class CoreDataManager {
             existingJob.assignedAt = assignedAt
             existingJob.completedAt = completedAt
             existingJob.province = province
+            saveContext()
+            return existingJob
         } else {
             // Create new job
             let job = NSEntityDescription.insertNewObject(forEntityName: "Job", into: context) as! Job
             job.id = id
-            job.shipmentId = shipmentId
+            job.shipmentId = shipperId  // Map shipperId to shipmentId in Core Data
             job.status = status
             job.assignedAt = assignedAt
             job.completedAt = completedAt
             job.province = province
+            saveContext()
+            return job
         }
-        
-        saveContext()
     }
     
     /// Fetch a specific job by ID
@@ -360,17 +362,19 @@ class CoreDataManager {
         
         // Finally, save all jobs and link to shipments
         for job in jobs {
-            saveJob(
+            let _ = saveJob(
                 id: Int64(job.id),
-                shipmentId: Int64(job.shipmentId),
+                shipperId: Int64(job.shipmentId),
                 status: job.status,
                 assignedAt: job.assignedAt,
                 completedAt: job.completedAt,
                 province: job.province
             )
             
-            // Link job to shipment
-            linkJobToShipment(jobId: Int64(job.id), shipmentId: Int64(job.shipmentId))
+            // Link Job to Shipment if available
+            if fetchShipment(withId: Int64(job.shipmentId)) != nil {
+                linkJobToShipment(jobId: Int64(job.id), shipmentId: Int64(job.shipmentId))
+            }
         }
     }
     
@@ -381,8 +385,8 @@ class CoreDataManager {
         let job = fetchJob(withId: Int64(jobDTO.id)) ?? NSEntityDescription.insertNewObject(forEntityName: "Job", into: context) as! Job
         
         job.id = Int64(jobDTO.id)
-        job.shipmentId = Int64(jobDTO.shipmentId)
-        job.status = jobDTO.status
+        job.shipmentId = Int64(jobDTO.shipperId)
+        job.status = jobDTO.status.rawValue
         job.province = jobDTO.province
         
         saveContext()
@@ -408,11 +412,15 @@ class CoreDataManager {
     private func convertJobToDTO(_ job: Job) -> JobDTO {
         let shipment = job.shipment
         
+        // Convert string status to JobStatus enum
+        let statusString = job.status ?? "pending"
+        let status = JobStatus(rawValue: statusString) ?? .pending
+        
         return JobDTO(
             id: Int(job.id),
-            shipmentId: Int(job.shipmentId),
+            shipperId: Int(job.shipmentId),  // Map shipmentId in Core Data to shipperId in DTO
             driverId: nil,
-            status: job.status ?? "",
+            status: status,
             shipmentType: shipment?.shipmentType,
             pickupAddress: shipment?.pickupAddress ?? "",
             pickupCity: shipment?.pickupCity ?? "",
@@ -625,6 +633,24 @@ class CoreDataManager {
         } catch {
             print("Error fetching vehicles: \(error)")
             return []
+        }
+    }
+    
+    // DTO to Core Data conversion helpers
+    private func saveJobDTOToCoreData(_ job: JobDTO) {
+        // Create or update Job entity
+        let _ = saveJob(
+            id: Int64(job.id),
+            shipperId: Int64(job.shipperId),
+            status: job.status.rawValue,
+            assignedAt: nil,
+            completedAt: nil,
+            province: job.province
+        )
+        
+        // Link Job to Shipment if available
+        if fetchShipment(withId: Int64(job.shipperId)) != nil {
+            linkJobToShipment(jobId: Int64(job.id), shipmentId: Int64(job.shipperId))
         }
     }
 }

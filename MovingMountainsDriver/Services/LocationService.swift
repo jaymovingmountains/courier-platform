@@ -2,7 +2,13 @@ import Foundation
 import CoreLocation
 import Combine
 
-class LocationService: NSObject, ObservableObject {
+// Add LocationConstants struct with minUpdateInterval
+struct LocationConstants {
+    static let minUpdateInterval: TimeInterval = 60 // 1 minute between updates
+}
+
+@MainActor
+final class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
     static let shared = LocationService()
     
     private let locationManager = CLLocationManager()
@@ -12,6 +18,7 @@ class LocationService: NSObject, ObservableObject {
     @Published var locationStatus: CLAuthorizationStatus?
     @Published var isTrackingEnabled = false
     @Published var lastUpdateSent: Date?
+    @Published var trackingError: String?
     
     private let updateInterval: TimeInterval = 5 * 60  // 5 minutes
     private var updateTimer: Timer?
@@ -54,20 +61,28 @@ class LocationService: NSObject, ObservableObject {
         
         // Send location update to server
         Task {
-            do {
-                let success = try await apiClient.updateLocation(
-                    latitude: location.coordinate.latitude, 
-                    longitude: location.coordinate.longitude
-                )
-                
-                if success {
-                    DispatchQueue.main.async {
-                        self.lastUpdateSent = Date()
-                    }
-                }
-            } catch {
-                print("Failed to send location update: \(error.localizedDescription)")
+            await sendLocationUpdate(location: location)
+        }
+    }
+    
+    private func sendLocationUpdate(location: CLLocation) async {
+        // Check if we've updated recently to avoid excessive updates
+        if let lastUpdate = lastUpdateSent, 
+           Date().timeIntervalSince(lastUpdate) < LocationConstants.minUpdateInterval {
+            return
+        }
+        
+        do {
+            let success = try await apiClient.updateLocation(
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude
+            )
+            
+            if success {
+                self.lastUpdateSent = Date()
             }
+        } catch {
+            print("Failed to send location update: \(error.localizedDescription)")
         }
     }
     
@@ -87,9 +102,11 @@ class LocationService: NSObject, ObservableObject {
     }
 }
 
-extension LocationService: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        DispatchQueue.main.async {
+// Remove redundant protocol conformance
+extension LocationService {
+    @objc nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        // Update UI on the main actor
+        Task { @MainActor in
             self.locationStatus = manager.authorizationStatus
             
             // If authorization status changes to authorized and tracking is enabled, restart tracking
@@ -103,20 +120,21 @@ extension LocationService: CLLocationManagerDelegate {
         }
     }
     
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    @objc nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
         
-        DispatchQueue.main.async {
+        // Update UI and handle location on the main actor
+        Task { @MainActor in
             self.currentLocation = location
-        }
-        
-        // If significant movement detected, send update immediately
-        if shouldSendImmediateUpdate(location) {
-            sendLocationUpdate()
+            
+            // If significant movement detected, send update immediately
+            if shouldSendImmediateUpdate(location) {
+                sendLocationUpdate()
+            }
         }
     }
     
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    @objc nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Location manager error: \(error.localizedDescription)")
     }
     

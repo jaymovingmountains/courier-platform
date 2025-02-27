@@ -13,7 +13,8 @@ struct AlertItem: Identifiable {
     let message: String
 }
 
-class UpdateStatusViewModel: ObservableObject {
+@MainActor
+final class UpdateStatusViewModel: ObservableObject {
     @Published var job: JobDTO?
     @Published var selectedStatus: String = ""
     @Published var notes: String = ""
@@ -40,7 +41,7 @@ class UpdateStatusViewModel: ObservableObject {
         // Filter options based on current job status
         guard let job = job else { return [] }
         
-        switch job.status {
+        switch job.status.rawValue {
         case "assigned":
             return options.filter { $0.id == "picked_up" }
         case "picked_up":
@@ -65,24 +66,20 @@ class UpdateStatusViewModel: ObservableObject {
                     endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)"
                 )
                 
-                DispatchQueue.main.async {
-                    self.job = job
-                    
-                    // Pre-select next logical status
-                    if let nextStatus = self.statusOptions.first?.id {
-                        self.selectedStatus = nextStatus
-                    }
-                    
-                    self.isLoading = false
+                self.job = job
+                
+                // Pre-select next logical status
+                if let nextStatus = self.statusOptions.first?.id {
+                    self.selectedStatus = nextStatus
                 }
+                
+                self.isLoading = false
             } catch {
-                DispatchQueue.main.async {
-                    self.alertItem = AlertItem(
-                        title: "Error",
-                        message: "Failed to fetch job details"
-                    )
-                    self.isLoading = false
-                }
+                self.alertItem = AlertItem(
+                    title: "Error",
+                    message: "Failed to fetch job details"
+                )
+                self.isLoading = false
             }
         }
     }
@@ -109,18 +106,14 @@ class UpdateStatusViewModel: ObservableObject {
                     body: requestData
                 )
                 
-                DispatchQueue.main.async {
-                    self.isSuccess = true
-                    self.isLoading = false
-                }
+                self.isSuccess = true
+                self.isLoading = false
             } catch {
-                DispatchQueue.main.async {
-                    self.alertItem = AlertItem(
-                        title: "Error",
-                        message: "Failed to update status"
-                    )
-                    self.isLoading = false
-                }
+                self.alertItem = AlertItem(
+                    title: "Error",
+                    message: "Failed to update status"
+                )
+                self.isLoading = false
             }
         }
     }
@@ -146,7 +139,7 @@ struct UpdateStatusView: View {
                         Text("Current Status:")
                             .font(.headline)
                         
-                        StatusBadgeView(status: job.status)
+                        StatusBadgeView(status: job.status.rawValue)
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)

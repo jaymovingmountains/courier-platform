@@ -1,46 +1,231 @@
 import SwiftUI
 import MapKit
+import Combine
 
-class JobDetailsViewModel: ObservableObject {
+// MARK: - Custom Error Types for Job Details
+
+/// Specific error types for Job Details
+enum JobDetailsError: Error, Identifiable {
+    case network(description: String, isRetryable: Bool)
+    case server(code: Int, description: String)
+    case jobNotFound(jobId: Int)
+    case authentication(description: String)
+    case parsing(description: String)
+    case offline
+    case timeout
+    case unknown(Error?)
+    
+    var id: String {
+        switch self {
+        case .network: return "network"
+        case .server(let code, _): return "server_\(code)"
+        case .jobNotFound(let jobId): return "jobNotFound_\(jobId)"
+        case .authentication: return "authentication"
+        case .parsing: return "parsing"
+        case .offline: return "offline"
+        case .timeout: return "timeout"
+        case .unknown: return "unknown"
+        }
+    }
+    
+    /// User-friendly error message
+    var userMessage: String {
+        switch self {
+        case .network(let description, let isRetryable):
+            return isRetryable 
+                ? "Connection issue: \(description). We'll try again shortly."
+                : "Network error: \(description). Please check your connection."
+            
+        case .server(let code, let description):
+            return "Server error (\(code)): \(description)"
+            
+        case .jobNotFound(let jobId):
+            return "Job #\(jobId) could not be found. It may have been cancelled or removed."
+            
+        case .authentication(let description):
+            return "Authentication error: \(description). Please log in again."
+            
+        case .parsing(let description):
+            return "Data error: \(description). Please contact support if this persists."
+            
+        case .offline:
+            return "You're offline. Please check your connection and try again."
+            
+        case .timeout:
+            return "Request timed out. Please try again later."
+            
+        case .unknown(let error):
+            if let error = error {
+                return "An unexpected error occurred: \(error.localizedDescription)"
+            } else {
+                return "An unexpected error occurred. Please try again."
+            }
+        }
+    }
+    
+    /// Convert from APIError to more specific JobDetailsError
+    static func from(_ apiError: APIError, jobId: Int? = nil) -> JobDetailsError {
+        switch apiError {
+        case .invalidURL:
+            return .network(description: "Invalid URL", isRetryable: false)
+            
+        case .noData:
+            return .network(description: "No data received", isRetryable: true)
+            
+        case .decodingError:
+            return .parsing(description: "Could not process server response")
+            
+        case .serverError(let code):
+            // Handle 404 errors specially
+            if code == 404, let jobId = jobId {
+                return .jobNotFound(jobId: jobId)
+            }
+            
+            switch code {
+            case 401:
+                return .authentication(description: "Your session has expired")
+            case 500...599:
+                return .server(code: code, description: "Server encountered an error")
+            default:
+                return .server(code: code, description: "Unexpected server response")
+            }
+            
+        case .networkError(let error):
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                switch nsError.code {
+                case NSURLErrorNotConnectedToInternet:
+                    return .offline
+                case NSURLErrorTimedOut:
+                    return .timeout
+                default:
+                    return .network(description: error.localizedDescription, isRetryable: true)
+                }
+            }
+            return .network(description: error.localizedDescription, isRetryable: true)
+            
+        case .unauthorized:
+            return .authentication(description: "Session expired or invalid")
+            
+        case .unknown:
+            return .unknown(nil)
+        }
+    }
+    
+    /// Whether this error type should be automatically retried
+    var isRetryable: Bool {
+        switch self {
+        case .network(_, let isRetryable):
+            return isRetryable
+        case .offline, .timeout, .server:
+            return true
+        case .jobNotFound, .authentication, .parsing, .unknown:
+            return false
+        }
+    }
+}
+
+@MainActor
+final class JobDetailsViewModel: ObservableObject {
     @Published var job: JobDTO?
     @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var error: JobDetailsError?
+    @Published var showError = false
     @Published var directions: MKDirections.Response?
+    @Published var statusUpdateMessage: String?
+    @Published var showStatusUpdateMessage = false
+    
+    // Retry management
+    private var retryCount = 0
+    private let maxRetryCount = 3
     
     private let apiClient: APIClient
-    private let jobId: Int
+    public let jobId: Int
+    
+    // Network monitor
+    private let networkMonitor = NetworkMonitor.shared
+    private var connectivityCancellable: AnyCancellable?
     
     init(apiClient: APIClient, jobId: Int) {
         self.apiClient = apiClient
         self.jobId = jobId
+        
+        // Listen for connectivity restoration
+        connectivityCancellable = NotificationCenter.default.publisher(
+            for: NetworkMonitor.connectivityRestoredNotification
+        )
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _ in
+            // When connection is restored, retry if we have an error
+            if self?.error?.isRetryable == true {
+                self?.resetRetryCounter()
+                self?.fetchJobDetails()
+            }
+        }
     }
     
     func fetchJobDetails() {
         isLoading = true
-        errorMessage = nil
+        error = nil
+        showError = false
+        
+        print("🔍 JOB DETAILS: Fetching details for job ID: \(jobId)")
         
         Task {
             do {
-                let job: JobDTO = try await apiClient.fetch(
-                    endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)"
+                // Use the network-aware fetch method
+                let job: JobDTO = try await apiClient.fetchWithOfflineSupport(
+                    endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)",
+                    requestType: "job_details"
                 )
                 
-                DispatchQueue.main.async {
-                    self.job = job
-                    self.calculateRoute()
-                    self.isLoading = false
-                }
+                self.job = job
+                self.calculateRoute()
+                self.isLoading = false
+                print("✅ JOB DETAILS: Successfully fetched details for job ID: \(jobId)")
             } catch let error as APIError {
-                DispatchQueue.main.async {
-                    self.errorMessage = error.message
-                    self.isLoading = false
-                }
+                handleError(error)
             } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = "An unexpected error occurred"
-                    self.isLoading = false
-                }
+                handleError(error)
             }
+        }
+    }
+    
+    private func handleError(_ error: Error) {
+        let jobDetailsError: JobDetailsError
+        
+        if let apiError = error as? APIError {
+            jobDetailsError = JobDetailsError.from(apiError, jobId: jobId)
+        } else {
+            jobDetailsError = .unknown(error)
+        }
+        
+        print("🚨 JOB DETAILS ERROR: \(jobDetailsError.userMessage)")
+        
+        // Set the error and show it
+        self.error = jobDetailsError
+        self.showError = true
+        self.isLoading = false
+        
+        // Automatically retry for network-related errors if we're online
+        // Note: The NetworkMonitor will handle offline retries,
+        // so we only need to handle online retries here
+        if jobDetailsError.isRetryable && retryCount < maxRetryCount && networkMonitor.isConnected {
+            retryFetchJobDetails()
+        }
+    }
+    
+    private func retryFetchJobDetails() {
+        retryCount += 1
+        
+        // Exponential backoff: 2^retry * 500ms base time
+        let delay = pow(2.0, Double(retryCount)) * 0.5
+        print("🔄 JOB DETAILS: Retrying fetch in \(delay) seconds (attempt \(retryCount)/\(maxRetryCount))")
+        
+        // Wait with exponential backoff
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            fetchJobDetails()
         }
     }
     
@@ -91,7 +276,8 @@ class JobDetailsViewModel: ObservableObject {
                         return
                     }
                     
-                    DispatchQueue.main.async {
+                    // Access the main actor to update UI
+                    Task { @MainActor in
                         self?.directions = response
                     }
                 }
@@ -99,42 +285,123 @@ class JobDetailsViewModel: ObservableObject {
         }
     }
     
+    /// Check if the status transition is valid based on server-side validation rules
+    private func isValidStatusTransition(from currentStatus: String, to newStatus: String) -> Bool {
+        // Match the server-side validation logic
+        switch currentStatus {
+        case "pending":
+            return ["approved", "assigned", "cancelled"].contains(newStatus)
+        case "approved":
+            return ["quoted", "assigned", "cancelled"].contains(newStatus)
+        case "quoted":
+            return ["assigned", "cancelled"].contains(newStatus)
+        case "assigned":
+            return ["picked_up", "cancelled"].contains(newStatus)
+        case "picked_up":
+            return ["in_transit", "cancelled"].contains(newStatus)
+        case "in_transit":
+            return ["delivered", "cancelled"].contains(newStatus)
+        case "delivered":
+            return ["completed", "cancelled"].contains(newStatus)
+        case "completed", "cancelled":
+            return false // Terminal states
+        default:
+            return false
+        }
+    }
+    
+    /// Get user-friendly message for status update
+    private func getStatusUpdateMessage(for status: String) -> String {
+        switch status {
+        case "assigned":
+            return "Job assigned successfully"
+        case "picked_up":
+            return "Pickup confirmed"
+        case "in_transit":
+            return "Shipment is now in transit"
+        case "delivered":
+            return "Delivery confirmed"
+        case "completed":
+            return "Job completed successfully"
+        case "cancelled":
+            return "Job has been cancelled"
+        default:
+            return "Status updated to \(status)"
+        }
+    }
+    
     func updateJobStatus(to status: String) {
+        // Validate job exists
+        guard let job = job else {
+            error = .unknown(nil)
+            showError = true
+            return
+        }
+        
+        // Validate the status transition
+        if !isValidStatusTransition(from: job.status.rawValue, to: status) {
+            error = .server(code: 400, description: "Invalid status transition from \(job.status.rawValue) to \(status)")
+            showError = true
+            return
+        }
+        
         isLoading = true
-        errorMessage = nil
+        error = nil
+        showError = false
+        statusUpdateMessage = "Updating job status..."
+        showStatusUpdateMessage = true
+        
+        print("🔄 JOB STATUS: Updating job #\(jobId) status to: \(status)")
         
         Task {
             do {
+                // Format the request body to match server.js expectations: {status: 'new_status'}
                 let updateBody = ["status": status]
                 let jsonData = try JSONSerialization.data(withJSONObject: updateBody)
                 
-                let updatedJob: JobDTO = try await apiClient.fetch(
+                // Use the exact endpoint structure from server.js: /jobs/:id/status with PUT method
+                let updatedJob: JobDTO = try await apiClient.fetchWithOfflineSupport(
                     endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/status",
                     method: "PUT",
-                    body: jsonData
+                    body: jsonData,
+                    requestType: "update_job_status"
                 )
                 
-                DispatchQueue.main.async {
-                    self.job = updatedJob
-                    self.isLoading = false
+                self.job = updatedJob
+                self.isLoading = false
+                
+                // Show success message
+                self.statusUpdateMessage = getStatusUpdateMessage(for: status)
+                self.showStatusUpdateMessage = true
+                
+                // Auto-hide the message after 3 seconds
+                Task {
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    self.showStatusUpdateMessage = false
                 }
+                
+                print("✅ JOB STATUS: Successfully updated job #\(jobId) status to: \(status)")
             } catch let error as APIError {
-                DispatchQueue.main.async {
-                    self.errorMessage = error.message
-                    self.isLoading = false
-                }
+                handleError(error)
+                statusUpdateMessage = nil
+                showStatusUpdateMessage = false
             } catch {
-                DispatchQueue.main.async {
-                    self.errorMessage = "An unexpected error occurred"
-                    self.isLoading = false
-                }
+                handleError(error)
+                statusUpdateMessage = nil
+                showStatusUpdateMessage = false
             }
         }
+    }
+    
+    /// Reset retry counter for manual retries
+    func resetRetryCounter() {
+        retryCount = 0
     }
 }
 
 struct JobDetailsView: View {
     @StateObject private var viewModel: JobDetailsViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var mapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -147,9 +414,10 @@ struct JobDetailsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Status section
                 if let job = viewModel.job {
-                    StatusBadgeView(status: job.status)
+                    // Job found - normal view
+                    // Status section
+                    StatusBadgeView(status: job.status.rawValue)
                     
                     // Map View
                     JobDetailsMapView(directions: viewModel.directions)
@@ -168,30 +436,182 @@ struct JobDetailsView: View {
                     ActionButtonsView(job: job, onStatusUpdate: { newStatus in
                         viewModel.updateJobStatus(to: newStatus)
                     })
+                } else if viewModel.error != nil && !viewModel.isLoading {
+                    // Job not found or error - guidance view
+                    JobErrorGuidanceView(
+                        error: viewModel.error!, 
+                        onRetry: {
+                            viewModel.resetRetryCounter()
+                            viewModel.fetchJobDetails()
+                        },
+                        onBackToDashboard: {
+                            dismiss()
+                        }
+                    )
                 }
             }
             .padding()
         }
-        .navigationTitle("Job #\(viewModel.job?.id ?? 0)")
+        .navigationTitle("Job #\(viewModel.job?.id ?? viewModel.jobId)")
         .overlay(
             Group {
                 if viewModel.isLoading {
                     LoadingView()
                 }
+                
+                // Status update message overlay
+                if viewModel.showStatusUpdateMessage, let message = viewModel.statusUpdateMessage {
+                    VStack {
+                        Spacer()
+                        
+                        Text(message)
+                            .padding()
+                            .background(Color(.systemBackground))
+                            .cornerRadius(8)
+                            .shadow(radius: 3)
+                            .padding(.bottom, 20)
+                    }
+                    .transition(.move(edge: .bottom))
+                    .animation(.easeInOut, value: viewModel.showStatusUpdateMessage)
+                }
             }
         )
-        .alert(isPresented: Binding<Bool>(
-            get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
-        )) {
+        .alert(isPresented: $viewModel.showError) {
             Alert(
-                title: Text("Error"),
-                message: Text(viewModel.errorMessage ?? "Unknown error"),
+                title: Text(errorAlertTitle),
+                message: Text(viewModel.error?.userMessage ?? "Unknown error"),
                 dismissButton: .default(Text("OK"))
             )
         }
         .onAppear {
             viewModel.fetchJobDetails()
+        }
+        .withOfflineIndicator() // Apply our offline indicator
+    }
+    
+    // Custom error alert title based on error type
+    private var errorAlertTitle: String {
+        guard let error = viewModel.error else { return "Error" }
+        
+        switch error {
+        case .jobNotFound:
+            return "Job Not Found"
+        case .authentication:
+            return "Authentication Error"
+        case .network, .offline, .timeout:
+            return "Connection Error"
+        case .server:
+            return "Server Error"
+        default:
+            return "Error"
+        }
+    }
+}
+
+struct JobErrorGuidanceView: View {
+    let error: JobDetailsError
+    let onRetry: () -> Void
+    let onBackToDashboard: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            // Icon
+            Image(systemName: errorIcon)
+                .font(.system(size: 64))
+                .foregroundColor(errorColor)
+                .padding(.bottom, 8)
+            
+            // Error message
+            Text(error.userMessage)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            // Guidance message
+            Text(guidanceMessage)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+            
+            // Action buttons
+            VStack(spacing: 12) {
+                // Only show retry button for retryable errors
+                if error.isRetryable {
+                    Button(action: onRetry) {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Try Again")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.accentColor)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                    }
+                }
+                
+                Button(action: onBackToDashboard) {
+                    HStack {
+                        Image(systemName: "house.fill")
+                        Text("Back to Dashboard")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(error.isRetryable ? Color(.systemGray5) : Color.accentColor)
+                    .foregroundColor(error.isRetryable ? .primary : .white)
+                    .cornerRadius(10)
+                }
+            }
+            .padding(.top, 8)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        .padding()
+    }
+    
+    private var errorIcon: String {
+        switch error {
+        case .jobNotFound:
+            return "doc.fill.questionmark"
+        case .network, .offline, .timeout:
+            return "wifi.exclamationmark"
+        case .authentication:
+            return "lock.fill"
+        case .server:
+            return "server.rack"
+        default:
+            return "exclamationmark.triangle.fill"
+        }
+    }
+    
+    private var errorColor: Color {
+        switch error {
+        case .jobNotFound:
+            return .orange
+        case .network, .offline, .timeout:
+            return .blue
+        case .authentication:
+            return .red
+        case .server:
+            return .red
+        default:
+            return .yellow
+        }
+    }
+    
+    private var guidanceMessage: String {
+        switch error {
+        case .jobNotFound:
+            return "This job may have been cancelled or reassigned. You can return to the dashboard to see your current jobs."
+        case .network, .offline, .timeout:
+            return "There seems to be a connection issue. Check your internet connection and try again."
+        case .authentication:
+            return "Your session has expired. Please return to the dashboard and log in again."
+        default:
+            return "You can try again or return to the dashboard to view other jobs."
         }
     }
 }
@@ -339,30 +759,44 @@ struct ActionButtonsView: View {
     var body: some View {
         VStack(spacing: 12) {
             // Different buttons depending on job status
-            switch job.status {
-            case "pending":
+            switch job.status.rawValue {
+            case "pending", "approved", "quoted":
                 Button(action: {
-                    onStatusUpdate("accepted")
+                    onStatusUpdate("assigned")
                 }) {
-                    ActionButton(title: "Accept Job", iconName: "checkmark.circle", color: .blue)
+                    ActionButton(title: "Assign Job", iconName: "checkmark.circle", color: .blue)
                 }
                 
-            case "accepted":
+            case "assigned":
                 Button(action: {
-                    onStatusUpdate("in_progress")
+                    onStatusUpdate("picked_up")
                 }) {
-                    ActionButton(title: "Start Delivery", iconName: "play.circle", color: .green)
+                    ActionButton(title: "Confirm Pickup", iconName: "cube.box.fill", color: .blue)
                 }
                 
-            case "in_progress":
+            case "picked_up":
+                Button(action: {
+                    onStatusUpdate("in_transit")
+                }) {
+                    ActionButton(title: "Start Transit", iconName: "arrow.right.circle.fill", color: .orange)
+                }
+                
+            case "in_transit":
+                Button(action: {
+                    onStatusUpdate("delivered")
+                }) {
+                    ActionButton(title: "Confirm Delivery", iconName: "checkmark.circle.fill", color: .green)
+                }
+                
+            case "delivered":
                 Button(action: {
                     onStatusUpdate("completed")
                 }) {
-                    ActionButton(title: "Complete Delivery", iconName: "flag.checkered", color: .green)
+                    ActionButton(title: "Complete Job", iconName: "flag.checkered", color: .green)
                 }
                 
-            case "completed":
-                Text("This delivery has been completed")
+            case "completed", "cancelled":
+                Text("This job is \(job.status)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
@@ -375,9 +809,16 @@ struct ActionButtonsView: View {
             }
             
             // Navigation button
-            if job.status != "completed" && job.status != "cancelled" {
+            if job.status.rawValue != "completed" && job.status.rawValue != "cancelled" {
                 Link(destination: URL(string: "maps://?daddr=\(job.deliveryAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryCity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryPostalCode.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!) {
                     ActionButton(title: "Open in Maps", iconName: "map", color: .blue)
+                }
+                
+                // Add cancel button for non-terminal states
+                Button(action: {
+                    onStatusUpdate("cancelled")
+                }) {
+                    ActionButton(title: "Cancel Job", iconName: "xmark.circle", color: .red)
                 }
             }
         }

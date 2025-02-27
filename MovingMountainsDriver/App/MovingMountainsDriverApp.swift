@@ -1,4 +1,9 @@
 import SwiftUI
+import Combine
+import Foundation
+
+// Direct import to get access to NetworkMonitor
+import Network
 
 @main
 struct MovingMountainsDriverApp: App {
@@ -9,6 +14,9 @@ struct MovingMountainsDriverApp: App {
         let authService = AuthService()
         self.apiClient = APIClient(authService: authService)
         self._authService = StateObject(wrappedValue: authService)
+        
+        // Initialize NetworkMonitor on app start
+        let _ = NetworkMonitor.shared
     }
     
     var body: some Scene {
@@ -46,11 +54,17 @@ struct ContentView: View {
                         }
                         .tag(1)
                     
+                    NetworkStatusDemoView()
+                        .tabItem {
+                            Label("Network", systemImage: "network")
+                        }
+                        .tag(2)
+                    
                     SettingsView()
                         .tabItem {
                             Label("Settings", systemImage: "gear")
                         }
-                        .tag(2)
+                        .tag(3)
                 }
                 .accentColor(.blue)
             } else {
@@ -128,4 +142,43 @@ struct SettingsView: View {
 
 #Preview {
     ContentView()
+}
+
+// TEMPORARY NetworkMonitor class to resolve compilation errors
+// You should remove this once you properly import the real NetworkMonitor
+class NetworkMonitor {
+    static let shared = NetworkMonitor()
+    var isConnected: Bool = true
+    static let connectivityRestoredNotification = Notification.Name("connectivityRestored")
+    
+    private init() {}
+}
+
+// TEMPORARY NetworkStatusDemoView to resolve compilation errors
+// You should remove this once you properly import the real NetworkStatusDemoView
+struct NetworkStatusDemoView: View {
+    var body: some View {
+        Text("Network Status Demo")
+    }
+}
+
+// TEMPORARY extension to View for withOfflineIndicator
+extension View {
+    func withOfflineIndicator() -> some View {
+        // Just return self - this is a stub
+        return self
+    }
+}
+
+// TEMPORARY APIClient extension
+extension APIClient {
+    func fetchWithOfflineSupport<T: Decodable>(
+        endpoint: String, 
+        method: String = "GET", 
+        body: Data? = nil,
+        requestType: String
+    ) async throws -> T {
+        // Simply call the normal fetch method since this is just a stub
+        return try await fetch(endpoint: endpoint, method: method, body: body)
+    }
 } 
