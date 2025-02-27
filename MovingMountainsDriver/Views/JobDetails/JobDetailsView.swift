@@ -152,7 +152,7 @@ struct JobDetailsView: View {
                     StatusBadgeView(status: job.status)
                     
                     // Map View
-                    MapView(directions: viewModel.directions)
+                    JobDetailsMapView(directions: viewModel.directions)
                         .frame(height: 250)
                         .cornerRadius(12)
                     
@@ -403,7 +403,7 @@ struct ActionButton: View {
     }
 }
 
-struct MapView: UIViewRepresentable {
+struct JobDetailsMapView: UIViewRepresentable {
     var directions: MKDirections.Response?
     
     func makeUIView(context: Context) -> MKMapView {
@@ -445,9 +445,9 @@ struct MapView: UIViewRepresentable {
     }
     
     class Coordinator: NSObject, MKMapViewDelegate {
-        var parent: MapView
+        var parent: JobDetailsMapView
         
-        init(_ parent: MapView) {
+        init(_ parent: JobDetailsMapView) {
             self.parent = parent
         }
         

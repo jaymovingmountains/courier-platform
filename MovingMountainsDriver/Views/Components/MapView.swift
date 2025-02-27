@@ -34,14 +34,27 @@ struct MapView: UIViewRepresentable {
             }
         } else if !annotations.isEmpty {
             // If no directions but we have annotations, zoom to show them
-            let allAnnotations = MKMapRect.union(
-                annotations.map { MKMapRect(origin: MKMapPoint($0.coordinate), size: MKMapSize(width: 1, height: 1)) }
-            )
-            mapView.setVisibleMapRect(
-                allAnnotations,
-                edgePadding: UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50),
-                animated: true
-            )
+            // First create an array of map rects for each annotation
+            let mapRects = annotations.map { 
+                MKMapRect(origin: MKMapPoint($0.coordinate), size: MKMapSize(width: 1, height: 1))
+            }
+            
+            // Start with the first map rect
+            if let firstRect = mapRects.first {
+                var unionRect = firstRect
+                
+                // Union with the rest of the rects
+                for rect in mapRects.dropFirst() {
+                    unionRect = unionRect.union(rect)
+                }
+                
+                // Now set the visible rect
+                mapView.setVisibleMapRect(
+                    unionRect,
+                    edgePadding: UIEdgeInsets(top: 50, left: 50, bottom: 50, right: 50),
+                    animated: true
+                )
+            }
         }
     }
     
