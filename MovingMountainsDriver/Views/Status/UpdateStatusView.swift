@@ -128,7 +128,7 @@ class UpdateStatusViewModel: ObservableObject {
 
 struct UpdateStatusView: View {
     @StateObject private var viewModel: UpdateStatusViewModel
-    @Environment(\.presentationMode) private var presentationMode
+    @Environment(\.dismiss) var dismiss
     
     init(apiClient: APIClient, jobId: Int) {
         _viewModel = StateObject(wrappedValue: UpdateStatusViewModel(apiClient: apiClient, jobId: jobId))
@@ -234,7 +234,7 @@ struct UpdateStatusView: View {
                 title: Text("Success"),
                 message: Text("Status updated successfully"),
                 dismissButton: .default(Text("OK")) {
-                    presentationMode.dismiss()
+                    dismiss()
                 }
             )
         }
