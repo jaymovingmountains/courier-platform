@@ -70,6 +70,21 @@ class LocationService: NSObject, ObservableObject {
             }
         }
     }
+    
+    // Method to update location directly (non-async wrapper)
+    func updateDriverLocation(latitude: Double, longitude: Double, completion: @escaping (Bool, Error?) -> Void) {
+        Task {
+            do {
+                let success = try await apiClient.updateLocation(
+                    latitude: latitude,
+                    longitude: longitude
+                )
+                completion(success, nil)
+            } catch {
+                completion(false, error)
+            }
+        }
+    }
 }
 
 extension LocationService: CLLocationManagerDelegate {
@@ -120,33 +135,4 @@ extension LocationService: CLLocationManagerDelegate {
     }
 }
 
-// Add extension to APIClient for location updates
-extension APIClient {
-    func updateLocation(latitude: Double, longitude: Double) async throws -> Bool {
-        struct LocationUpdate: Codable {
-            let latitude: Double
-            let longitude: Double
-            let timestamp: Date
-        }
-        
-        struct LocationUpdateResponse: Codable {
-            let success: Bool
-        }
-        
-        let locationUpdate = LocationUpdate(
-            latitude: latitude,
-            longitude: longitude,
-            timestamp: Date()
-        )
-        
-        let body = try JSONEncoder().encode(locationUpdate)
-        
-        let response: LocationUpdateResponse = try await fetch(
-            endpoint: "/driver/location",
-            method: "POST",
-            body: body
-        )
-        
-        return response.success
-    }
-} 
+// Note: Removed the duplicate APIClient extension as it's likely defined elsewhere 
