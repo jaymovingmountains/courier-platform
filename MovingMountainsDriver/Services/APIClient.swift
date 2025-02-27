@@ -82,22 +82,22 @@ class APIClient {
     // MARK: - Job Operations
     
     /// Fetch all jobs assigned to the driver
-    func getJobs() async throws -> [Job] {
+    func getJobs() async throws -> [JobDTO] {
         return try await fetch(endpoint: APIConstants.jobsEndpoint)
     }
     
     /// Fetch details for a specific job
-    func getJobDetails(jobId: String) async throws -> Job {
+    func getJobDetails(jobId: String) async throws -> JobDTO {
         return try await fetch(endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)")
     }
     
     /// Update the status of a job
-    func updateJobStatus(jobId: String, status: JobStatus) async throws -> Job {
+    func updateJobStatus(jobId: String, status: String) async throws -> JobDTO {
         struct StatusUpdateRequest: Codable {
             let status: String
         }
         
-        let updateRequest = StatusUpdateRequest(status: status.rawValue)
+        let updateRequest = StatusUpdateRequest(status: status)
         let body = try JSONEncoder().encode(updateRequest)
         
         return try await fetch(
@@ -108,7 +108,7 @@ class APIClient {
     }
     
     /// Accept a job assignment
-    func acceptJob(jobId: String) async throws -> Job {
+    func acceptJob(jobId: String) async throws -> JobDTO {
         return try await fetch(
             endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/accept",
             method: "POST"
@@ -140,17 +140,17 @@ class APIClient {
     // MARK: - Shipment Operations
     
     /// Fetch all shipments for the driver
-    func getShipments() async throws -> [Shipment] {
+    func getShipments() async throws -> [ShipmentDTO] {
         return try await fetch(endpoint: APIConstants.shipmentsEndpoint)
     }
     
     /// Fetch details for a specific shipment
-    func getShipmentDetails(shipmentId: String) async throws -> Shipment {
+    func getShipmentDetails(shipmentId: String) async throws -> ShipmentDTO {
         return try await fetch(endpoint: "\(APIConstants.shipmentsEndpoint)/\(shipmentId)")
     }
     
     /// Update shipment status (e.g., picked up, delivered)
-    func updateShipmentStatus(shipmentId: String, status: ShipmentStatus) async throws -> Shipment {
+    func updateShipmentStatus(shipmentId: String, status: ShipmentStatus) async throws -> ShipmentDTO {
         struct ShipmentStatusUpdateRequest: Codable {
             let status: String
         }

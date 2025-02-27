@@ -4,11 +4,11 @@ import SwiftUI
 #if DEBUG
 // MARK: - Mock Data Generator
 class MockDataGenerator {
-    static func createMockJobs(count: Int = 5) -> [Job] {
-        var jobs: [Job] = []
+    static func createMockJobs(count: Int = 5) -> [JobDTO] {
+        var jobs: [JobDTO] = []
         
         for i in 1...count {
-            let job = Job(
+            let job = JobDTO(
                 id: i,
                 shipmentId: i,
                 driverId: i % 2 == 0 ? 1 : nil,
@@ -43,9 +43,9 @@ class MockAPIClient: APIClient {
         try await Task.sleep(nanoseconds: 1_000_000_000)
         
         if endpoint.contains("/jobs") {
-            if T.self == [Job].self {
+            if T.self == [JobDTO].self {
                 return MockDataGenerator.createMockJobs() as! T
-            } else if T.self == Job.self {
+            } else if T.self == JobDTO.self {
                 // Single job fetch
                 let jobId = Int(endpoint.components(separatedBy: "/").last ?? "1") ?? 1
                 let jobs = MockDataGenerator.createMockJobs()
