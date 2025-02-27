@@ -12,6 +12,7 @@
 		1A1A1A1E1A1A1A1A1A1A1A1E /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1F1A1A1A1A1A1A1A1F /* SceneDelegate.swift */; };
 		1A1A1A201A1A1A1A1A1A1A20 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A211A1A1A1A1A1A1A21 /* Assets.xcassets */; };
 		1A1A1A221A1A1A1A1A1A1A22 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1A1A1A231A1A1A1A1A1A1A23 /* LaunchScreen.storyboard */; };
+		1B04E0011B04E001 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C04E0011C04E001 /* Constants.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,7 +23,238 @@
 		1A1A1A211A1A1A1A1A1A1A21 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1A1A1A241A1A1A1A1A1A1A24 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		1A1A1A251A1A1A1A1A1A1A25 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-/* End PBXFileReference section */
+		1C04E0011C04E001 /* Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
+
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DevelopmentSetup.swift; path = Utilities/DevelopmentSetup.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B05a3de1B913c5e /* Models/Vehicle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Vehicle.swift; path = Models/Vehicle.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DevelopmentSetup.swift; path = Utilities/DevelopmentSetup.swift; sourceTree = "<group>"; };
+		1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataConversions.swift; path = Utilities/CoreDataConversions.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B05a3de1B913c5e /* Models/Vehicle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Vehicle.swift; path = Models/Vehicle.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DevelopmentSetup.swift; path = Utilities/DevelopmentSetup.swift; sourceTree = "<group>"; };
+		1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataConversions.swift; path = Utilities/CoreDataConversions.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };
+		1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardViewModel.swift; path = ViewModels/DashboardViewModel.swift; sourceTree = "<group>"; };
+		1Ba0c6441B38672d /* Models/Address.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Address.swift; path = Models/Address.swift; sourceTree = "<group>"; };
+		1B05a3de1B913c5e /* Models/Vehicle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Vehicle.swift; path = Models/Vehicle.swift; sourceTree = "<group>"; };
+		1B9415b21Bc94b51 /* Models/Shipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Shipment.swift; path = Models/Shipment.swift; sourceTree = "<group>"; };
+		1Bba2ae41B3f006d /* Models/User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = User.swift; path = Models/User.swift; sourceTree = "<group>"; };
+		1B88909e1B920aff /* Models/Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Job.swift; path = Models/Job.swift; sourceTree = "<group>"; };
+		1B85ce801B3944e0 /* Models/DriverProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DriverProfile.swift; path = Models/DriverProfile.swift; sourceTree = "<group>"; };
+		1Bbdffdd1B986ac6 /* Utilities/Constants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Constants.swift; path = Utilities/Constants.swift; sourceTree = "<group>"; };
+		1B5df6671B427882 /* Utilities/BuildConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BuildConfiguration.swift; path = Utilities/BuildConfiguration.swift; sourceTree = "<group>"; };
+		1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DevelopmentSetup.swift; path = Utilities/DevelopmentSetup.swift; sourceTree = "<group>"; };
+		1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataConversions.swift; path = Utilities/CoreDataConversions.swift; sourceTree = "<group>"; };
+		1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UpdateStatusView.swift; path = Views/Status/UpdateStatusView.swift; sourceTree = "<group>"; };
+		1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DashboardView.swift; path = Views/Dashboard/DashboardView.swift; sourceTree = "<group>"; };
+		1B31cacc1B114945 /* Views/Components/MapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MapView.swift; path = Views/Components/MapView.swift; sourceTree = "<group>"; };
+		1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LoginView.swift; path = Views/Authentication/LoginView.swift; sourceTree = "<group>"; };
+		1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = JobDetailsView.swift; path = Views/JobDetails/JobDetailsView.swift; sourceTree = "<group>"; };
+		1B9542361Baa6be3 /* Services/CoreDataManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CoreDataManager.swift; path = Services/CoreDataManager.swift; sourceTree = "<group>"; };
+		1Be5a7c21B6c08b3 /* Services/SyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SyncService.swift; path = Services/SyncService.swift; sourceTree = "<group>"; };
+		1Bab700e1Be362ab /* Services/APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = APIClient.swift; path = Services/APIClient.swift; sourceTree = "<group>"; };
+		1Bd503581B189b11 /* Services/AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = Services/AuthService.swift; sourceTree = "<group>"; };
+		1B49014a1Bb58899 /* Services/LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LocationService.swift; path = Services/LocationService.swift; sourceTree = "<group>"; };/* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		1A1A1A061A1A1A1A1A1A1A06 /* Frameworks */ = {
@@ -83,14 +315,147 @@
 			);
 			path = Models;
 			sourceTree = "<group>";
-		};
+		
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B05a3de1B913c5e /* Models/Vehicle.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B05a3de1B913c5e /* Models/Vehicle.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,
+				1Ba0c6441B38672d /* Models/Address.swift */,
+				1B05a3de1B913c5e /* Models/Vehicle.swift */,
+				1B9415b21Bc94b51 /* Models/Shipment.swift */,
+				1Bba2ae41B3f006d /* Models/User.swift */,
+				1B88909e1B920aff /* Models/Job.swift */,
+				1B85ce801B3944e0 /* Models/DriverProfile.swift */,};
 		1A1A1A0D1A1A1A1A1A1A1A0D /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				1A1A1A131A1A1A1A1A1A1A13 /* Authentication */,
+				1A1A1A141A1A1A1A1A1A1A14 /* Dashboard */,
+				1A1A1A151A1A1A1A1A1A1A15 /* JobDetails */,
+				1A1A1A161A1A1A1A1A1A1A16 /* Status */,
+				1A1A1A171A1A1A1A1A1A1A17 /* Settings */,
 			);
 			path = Views;
 			sourceTree = "<group>";
-		};
+		
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,
+				1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */,
+				1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */,
+				1B31cacc1B114945 /* Views/Components/MapView.swift */,
+				1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */,
+				1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */,};
 		1A1A1A0E1A1A1A1A1A1A1A0E /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
@@ -108,6 +473,7 @@
 		1A1A1A101A1A1A1A1A1A1A10 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				1C04E0011C04E001 /* Constants.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -126,6 +492,41 @@
 				1A1A1A231A1A1A1A1A1A1A23 /* LaunchScreen.storyboard */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		1A1A1A131A1A1A1A1A1A1A13 /* Authentication */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Authentication;
+			sourceTree = "<group>";
+		};
+		1A1A1A141A1A1A1A1A1A1A14 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		1A1A1A151A1A1A1A1A1A1A15 /* JobDetails */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = JobDetails;
+			sourceTree = "<group>";
+		};
+		1A1A1A161A1A1A1A1A1A1A16 /* Status */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Status;
+			sourceTree = "<group>";
+		};
+		1A1A1A171A1A1A1A1A1A1A17 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -201,9 +602,240 @@
 				1A1A1A1C1A1A1A1A1A1A1A1C /* AppDelegate.swift in Sources */,
 				1A1A1A1E1A1A1A1A1A1A1A1E /* SceneDelegate.swift in Sources */,
 				1A1A1A1A1A1A1A1A1A1A1A /* MovingMountainsDriverApp.swift in Sources */,
+				1B04E0011B04E001 /* Constants.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-		};
+		
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; 
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; 
+		1B7b582e1B6bb35d /* ViewModels/DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bcb09981B2db9f6 /* ViewModels/DashboardViewModel.swift */; };
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bd27c6a1Bd3c524 /* Models/Vehicle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B05a3de1B913c5e /* Models/Vehicle.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B00cc271Baa6aa7 /* Utilities/DevelopmentSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */; };
+		1Bb0770a1B42ba3d /* Utilities/CoreDataConversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bd27c6a1Bd3c524 /* Models/Vehicle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B05a3de1B913c5e /* Models/Vehicle.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B00cc271Baa6aa7 /* Utilities/DevelopmentSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */; };
+		1Bb0770a1B42ba3d /* Utilities/CoreDataConversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bd27c6a1Bd3c524 /* Models/Vehicle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B05a3de1B913c5e /* Models/Vehicle.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B00cc271Baa6aa7 /* Utilities/DevelopmentSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */; };
+		1Bb0770a1B42ba3d /* Utilities/CoreDataConversions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5d2db21B3f1651 /* Utilities/CoreDataConversions.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B00cc271Baa6aa7 /* Utilities/DevelopmentSetup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bc2878a1Bde98f2 /* Utilities/DevelopmentSetup.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4db9cd1B1f8c9e /* Utilities/BuildConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5df6671B427882 /* Utilities/BuildConfiguration.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };
+		1B8d3ad31Bbf8c23 /* Services/LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B49014a1Bb58899 /* Services/LocationService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B333d211B2616bc /* Views/Status/UpdateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B5c616a1B50c51d /* Views/Status/UpdateStatusView.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B7ab6d51B874d18 /* Views/Components/MapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B31cacc1B114945 /* Views/Components/MapView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1Bbbf3e81Bb96d3e /* Views/JobDetails/JobDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bb53f771B482923 /* Views/JobDetails/JobDetailsView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1B28b00e1Ba359d6 /* Models/Address.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba0c6441B38672d /* Models/Address.swift */; };
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B0ef8d61Bda6395 /* Views/Dashboard/DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B99326b1Be256c0 /* Views/Dashboard/DashboardView.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B4c385f1B3e86be /* Views/Authentication/LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Ba591f11Be54930 /* Views/Authentication/LoginView.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
+		1Bdd667e1B9fd3c9 /* Models/Shipment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9415b21Bc94b51 /* Models/Shipment.swift */; };
+		1B7e91a21B1b7d67 /* Models/User.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bba2ae41B3f006d /* Models/User.swift */; };
+		1B540b471Befbb25 /* Models/Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B88909e1B920aff /* Models/Job.swift */; };
+		1B846a221B64ccba /* Models/DriverProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B85ce801B3944e0 /* Models/DriverProfile.swift */; };
+		1Baafac11B064c42 /* Utilities/Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bbdffdd1B986ac6 /* Utilities/Constants.swift */; };
+		1B0760e81Bca8479 /* Services/CoreDataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B9542361Baa6be3 /* Services/CoreDataManager.swift */; };
+		1Bcdad631Bbaff0a /* Services/SyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Be5a7c21B6c08b3 /* Services/SyncService.swift */; };
+		1B9371fb1B91590f /* Services/APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bab700e1Be362ab /* Services/APIClient.swift */; };
+		1Bead2d11B9fc46e /* Services/AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1Bd503581B189b11 /* Services/AuthService.swift */; };};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
@@ -343,12 +975,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MovingMountainsDriver/Resources/Info.plist;
+				INFOPLIST_FILE = MovingMountainsDriver/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -362,7 +995,7 @@
 			};
 			name = Debug;
 		};
-		1A1A1A2A1A1A1A1A1A1A1A2A /* Release */ = {
+		1A1A1A2A1A1A1A1A1A1A2A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -371,12 +1004,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = MovingMountainsDriver/Resources/Info.plist;
+				INFOPLIST_FILE = MovingMountainsDriver/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

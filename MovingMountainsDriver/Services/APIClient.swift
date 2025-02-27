@@ -1,184 +1,74 @@
 import Foundation
 import Combine
-import KeychainSwift
-
-enum HTTPMethod: String {
-    case get = "GET"
-    case post = "POST"
-    case put = "PUT"
-    case patch = "PATCH"
-    case delete = "DELETE"
-}
 
 enum APIError: Error {
     case invalidURL
-    case invalidResponse
-    case httpError(Int)
-    case decodingError(Error)
+    case noData
+    case decodingError
+    case serverError(Int)
     case networkError(Error)
     case unauthorized
-    case forbidden(String)
     case unknown
-    case notFound
-    case serverError(Int)
+    
+    var message: String {
+        switch self {
+        case .invalidURL: return "Invalid URL"
+        case .noData: return "No data received"
+        case .decodingError: return "Failed to decode response"
+        case .serverError(let code): return "Server error: \(code)"
+        case .networkError(let error): return "Network error: \(error.localizedDescription)"
+        case .unauthorized: return "Unauthorized access"
+        case .unknown: return "Unknown error occurred"
+        }
+    }
 }
 
 class APIClient {
+    private let authService: AuthService
     private let session: URLSession
-    private let keychain = KeychainSwift()
-    private let tokenKey = "auth_token"
-    private let authService: AuthService?
     
-    // Initialize with optional auth service for dependency injection
-    init(session: URLSession = .shared, authService: AuthService? = nil) {
-        self.session = session
+    init(authService: AuthService, session: URLSession = .shared) {
         self.authService = authService
+        self.session = session
     }
     
-    // MARK: - Combine-based API methods
-    
-    func request(endpoint: String, method: HTTPMethod, parameters: [String: Any]? = nil) -> AnyPublisher<Data, Error> {
-        guard let url = URL(string: endpoint) else {
-            return Fail(error: APIError.invalidURL).eraseToAnyPublisher()
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add auth token if available
-        if let token = authService?.getToken() ?? keychain.get(tokenKey) {
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        // Add parameters
-        if let parameters = parameters {
-            do {
-                request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
-            } catch {
-                return Fail(error: error).eraseToAnyPublisher()
-            }
-        }
-        
-        return session.dataTaskPublisher(for: request)
-            .mapError { APIError.networkError($0) }
-            .flatMap { data, response -> AnyPublisher<Data, Error> in
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    return Fail(error: APIError.invalidResponse).eraseToAnyPublisher()
-                }
-                
-                switch httpResponse.statusCode {
-                case 200...299:
-                    return Just(data)
-                        .setFailureType(to: Error.self)
-                        .eraseToAnyPublisher()
-                case 401:
-                    // Token expired or invalid - logout
-                    self.authService?.logout()
-                    return Fail(error: APIError.unauthorized).eraseToAnyPublisher()
-                case 403:
-                    return Fail(error: APIError.forbidden("Access denied")).eraseToAnyPublisher()
-                case 404:
-                    return Fail(error: APIError.notFound).eraseToAnyPublisher()
-                default:
-                    return Fail(error: APIError.serverError(httpResponse.statusCode)).eraseToAnyPublisher()
-                }
-            }
-            .eraseToAnyPublisher()
-    }
-    
-    // MARK: - Async/await API methods
-    
-    func request(endpoint: String, method: HTTPMethod, parameters: [String: Any]? = nil) async throws -> Data {
-        guard let url = URL(string: endpoint) else {
+    func fetch<T: Decodable>(endpoint: String, method: String = "GET", body: Data? = nil) async throws -> T {
+        guard let url = URL(string: "\(APIConstants.baseURL)\(endpoint)") else {
             throw APIError.invalidURL
         }
         
-        var request = URLRequest(url: url)
-        request.httpMethod = method.rawValue
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        
-        // Add auth token if available
-        if let token = authService?.getToken() ?? keychain.get(tokenKey) {
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        // Add parameters
-        if let parameters = parameters {
-            request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
-        }
-        
-        let (data, response) = try await session.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.invalidResponse
-        }
-        
-        switch httpResponse.statusCode {
-        case 200...299:
-            return data
-        case 401:
-            // Token expired or invalid - logout
-            authService?.logout()
+        // Token retrieval and request creation 
+        guard let token = authService.retrieveToken() else {
             throw APIError.unauthorized
-        case 403:
-            throw APIError.forbidden("Access denied")
-        case 404:
-            throw APIError.notFound
-        default:
-            throw APIError.serverError(httpResponse.statusCode)
-        }
-    }
-    
-    // MARK: - Generic fetch method
-    
-    func fetch<T: Decodable>(_ endpoint: String, method: String = "GET", body: [String: Any]? = nil) async throws -> T {
-        guard let url = URL(string: "\(Constants.API.baseURL)\(endpoint)") else {
-            throw APIError.invalidURL
         }
         
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        // Add authentication header if we have a token
-        if let token = authService?.getToken() ?? keychain.get(tokenKey) {
-            request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        
-        // Add body if needed
         if let body = body {
-            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            request.httpBody = body
         }
         
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             
-            // Handle HTTP response
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.invalidResponse
+                throw APIError.unknown
             }
             
-            // Handle errors based on status code
             switch httpResponse.statusCode {
             case 200...299:
-                // Success - decode the data
-                let decoder = JSONDecoder()
-                decoder.dateDecodingStrategy = .iso8601
-                
                 do {
-                    return try decoder.decode(T.self, from: data)
+                    return try JSONDecoder().decode(T.self, from: data)
                 } catch {
-                    throw APIError.decodingError(error)
+                    throw APIError.decodingError
                 }
             case 401:
-                // Token expired or invalid - logout
-                authService?.logout()
+                // Handle token expiration
+                authService.logout()
                 throw APIError.unauthorized
-            case 403:
-                throw APIError.forbidden("Access denied")
-            case 404:
-                throw APIError.notFound
             default:
                 throw APIError.serverError(httpResponse.statusCode)
             }
@@ -189,64 +79,137 @@ class APIClient {
         }
     }
     
-    // MARK: - Job-related API methods
+    // MARK: - Job Operations
     
-    // Get all jobs assigned to the driver
-    func getAssignedJobs() async throws -> [Job] {
-        return try await fetch("/jobs?assigned=true")
+    /// Fetch all jobs assigned to the driver
+    func getJobs() async throws -> [Job] {
+        return try await fetch(endpoint: APIConstants.jobsEndpoint)
     }
     
-    // Get available jobs
-    func getAvailableJobs() async throws -> [Job] {
-        return try await fetch("/jobs?status=approved&assigned=false")
+    /// Fetch details for a specific job
+    func getJobDetails(jobId: String) async throws -> Job {
+        return try await fetch(endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)")
     }
     
-    // Accept a job
-    func acceptJob(id: Int) async throws -> JobResponse {
-        return try await fetch("/jobs/\(id)/accept", method: "PUT")
-    }
-    
-    // Update job status
-    func updateJobStatus(id: Int, status: String, notes: String? = nil) async throws -> JobResponse {
-        var body: [String: Any] = ["status": status]
-        if let notes = notes {
-            body["notes"] = notes
-        }
-        return try await fetch("/jobs/\(id)/status", method: "PUT", body: body)
-    }
-    
-    // Complete a job
-    func completeJob(id: Int, notes: String? = nil, photos: [URL]? = nil) async throws -> JobResponse {
-        var body: [String: Any] = ["status": "completed"]
-        
-        if let notes = notes {
-            body["notes"] = notes
+    /// Update the status of a job
+    func updateJobStatus(jobId: String, status: JobStatus) async throws -> Job {
+        struct StatusUpdateRequest: Codable {
+            let status: String
         }
         
-        if let photos = photos {
-            body["photos"] = photos.map { $0.absoluteString }
+        let updateRequest = StatusUpdateRequest(status: status.rawValue)
+        let body = try JSONEncoder().encode(updateRequest)
+        
+        return try await fetch(
+            endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/status",
+            method: "PUT",
+            body: body
+        )
+    }
+    
+    /// Accept a job assignment
+    func acceptJob(jobId: String) async throws -> Job {
+        return try await fetch(
+            endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/accept",
+            method: "POST"
+        )
+    }
+    
+    /// Decline a job assignment
+    func declineJob(jobId: String, reason: String) async throws -> Bool {
+        struct DeclineRequest: Codable {
+            let reason: String
         }
         
-        return try await fetch("/jobs/\(id)/complete", method: "PUT", body: body)
+        let declineRequest = DeclineRequest(reason: reason)
+        let body = try JSONEncoder().encode(declineRequest)
+        
+        struct DeclineResponse: Codable {
+            let success: Bool
+        }
+        
+        let response: DeclineResponse = try await fetch(
+            endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/decline",
+            method: "POST",
+            body: body
+        )
+        
+        return response.success
     }
     
-    // Get job details
-    func getJobDetails(id: Int) async throws -> Job {
-        return try await fetch("/jobs/\(id)")
+    // MARK: - Shipment Operations
+    
+    /// Fetch all shipments for the driver
+    func getShipments() async throws -> [Shipment] {
+        return try await fetch(endpoint: APIConstants.shipmentsEndpoint)
     }
     
-    // Get driver profile
-    func getDriverProfile() async throws -> User {
-        return try await fetch("/drivers/profile")
+    /// Fetch details for a specific shipment
+    func getShipmentDetails(shipmentId: String) async throws -> Shipment {
+        return try await fetch(endpoint: "\(APIConstants.shipmentsEndpoint)/\(shipmentId)")
     }
     
-    // Update driver profile
-    func updateDriverProfile(profile: [String: Any]) async throws -> User {
-        return try await fetch("/drivers/profile", method: "PUT", body: profile)
+    /// Update shipment status (e.g., picked up, delivered)
+    func updateShipmentStatus(shipmentId: String, status: ShipmentStatus) async throws -> Shipment {
+        struct ShipmentStatusUpdateRequest: Codable {
+            let status: String
+        }
+        
+        let updateRequest = ShipmentStatusUpdateRequest(status: status.rawValue)
+        let body = try JSONEncoder().encode(updateRequest)
+        
+        return try await fetch(
+            endpoint: "\(APIConstants.shipmentsEndpoint)/\(shipmentId)/status",
+            method: "PUT",
+            body: body
+        )
     }
     
-    // Get shipment details
-    func getShipmentDetails(id: String) async throws -> Shipment {
-        return try await fetch("/shipments/\(id)")
+    // MARK: - Profile Operations
+    
+    /// Fetch the driver profile
+    func getDriverProfile() async throws -> DriverProfile {
+        return try await fetch(endpoint: "/driver/profile")
+    }
+    
+    /// Update driver profile information
+    func updateDriverProfile(profile: DriverProfileUpdate) async throws -> DriverProfile {
+        let body = try JSONEncoder().encode(profile)
+        return try await fetch(
+            endpoint: "/driver/profile",
+            method: "PUT",
+            body: body
+        )
+    }
+    
+    // MARK: - Location Tracking
+    
+    /// Update the driver's current location
+    func updateLocation(latitude: Double, longitude: Double) async throws -> Bool {
+        struct LocationUpdate: Codable {
+            let latitude: Double
+            let longitude: Double
+            let timestamp: Date
+        }
+        
+        let locationUpdate = LocationUpdate(
+            latitude: latitude,
+            longitude: longitude,
+            timestamp: Date()
+        )
+        
+        let body = try JSONEncoder().encode(locationUpdate)
+        
+        struct LocationUpdateResponse: Codable {
+            let success: Bool
+        }
+        
+        let response: LocationUpdateResponse = try await fetch(
+            endpoint: "/driver/location",
+            method: "POST",
+            body: body
+        )
+        
+        return response.success
     }
 } 

@@ -1,149 +1,159 @@
 import Foundation
-import KeychainSwift
-import Combine
+import Security
 
-class AuthService {
-    private let keychain = KeychainSwift()
-    private let tokenKey = "auth_token"
-    private var apiClient: APIClient?
+class AuthService: ObservableObject {
+    @Published var isAuthenticated = false
+    @Published var currentUser: User?
+    @Published var authError: String?
     
-    init() {
-        // Create APIClient without AuthService to avoid circular dependency
-        // We'll set it later
-    }
+    private let keychainTokenKey = "driver_app_token"
     
-    func setAPIClient(_ apiClient: APIClient) {
-        self.apiClient = apiClient
-    }
-    
-    // Async/await login method
-    func login(username: String, password: String) async throws -> User {
-        guard let url = URL(string: Constants.API.login) else {
-            throw APIError.invalidURL
-        }
+    func login(username: String, password: String) async {
+        let loginURL = URL(string: "\(APIConstants.baseURL)\(APIConstants.loginEndpoint)")!
         
-        // Create request body
-        let body: [String: Any] = [
-            "username": username,
-            "password": password
-        ]
-        
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: loginURL)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("driver", forHTTPHeaderField: "x-portal")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
         
-        // Example of request/response handling
-        let (data, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, 
-              (200...299).contains(httpResponse.statusCode) else {
-            // Handle specific error types based on status codes
-            if let httpResponse = response as? HTTPURLResponse {
-                switch httpResponse.statusCode {
-                case 401: throw APIError.unauthorized
-                case 403: throw APIError.forbidden("Only drivers can login")
-                default: throw APIError.invalidResponse
-                }
-            }
-            throw APIError.invalidResponse
+        // Request body structure
+        struct LoginRequest: Codable {
+            let username: String
+            let password: String
         }
         
-        // Decode token
-        let authResponse = try JSONDecoder().decode(AuthResponse.self, from: data)
+        // Response structure
+        struct LoginResponse: Codable {
+            let token: String
+        }
         
-        // Save token to keychain
-        keychain.set(authResponse.token, forKey: tokenKey)
-        
-        // Decode user from JWT
-        return try getUserFromToken(authResponse.token)
-    }
-    
-    // Combine-based login method for compatibility with existing code
-    func login(email: String, password: String) -> AnyPublisher<User, Error> {
-        return Future<User, Error> { [weak self] promise in
-            guard let self = self else {
-                promise(.failure(APIError.unknown))
+        do {
+            let requestBody = LoginRequest(username: username, password: password)
+            request.httpBody = try JSONEncoder().encode(requestBody)
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse, 
+                  httpResponse.statusCode == 200 else {
+                DispatchQueue.main.async {
+                    self.authError = "Login failed. Please check your credentials."
+                }
                 return
             }
             
-            Task {
-                do {
-                    let user = try await self.login(username: email, password: password)
-                    promise(.success(user))
-                } catch {
-                    promise(.failure(error))
-                }
+            let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
+            storeToken(loginResponse.token)
+            decodeUserFromToken(loginResponse.token)
+            
+            DispatchQueue.main.async {
+                self.isAuthenticated = true
+                self.authError = nil
             }
-        }.eraseToAnyPublisher()
-    }
-    
-    func isLoggedIn() -> Bool {
-        if let token = getToken() {
-            // Check if token is expired
-            do {
-                let payload: JWTPayload = try JWTDecoder.decode(token: token)
-                return !payload.isExpired
-            } catch {
-                // If we can't decode the token, consider it invalid
-                logout()
-                return false
+        } catch {
+            DispatchQueue.main.async {
+                self.authError = "Login failed: \(error.localizedDescription)"
             }
         }
-        return false
     }
     
-    func getToken() -> String? {
-        return keychain.get(tokenKey)
+    // Store JWT token in Keychain
+    private func storeToken(_ token: String) {
+        let data = token.data(using: .utf8)!
+        
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: keychainTokenKey,
+            kSecValueData as String: data
+        ]
+        
+        // Delete any existing item
+        SecItemDelete(query as CFDictionary)
+        
+        // Add the new item
+        SecItemAdd(query as CFDictionary, nil)
     }
     
+    // Retrieve JWT token from Keychain
+    func retrieveToken() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: keychainTokenKey,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var dataTypeRef: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &dataTypeRef)
+        
+        if status == errSecSuccess {
+            if let retrievedData = dataTypeRef as? Data,
+               let token = String(data: retrievedData, encoding: .utf8) {
+                return token
+            }
+        }
+        
+        return nil
+    }
+    
+    // Decode user information from JWT token
+    private func decodeUserFromToken(_ token: String) {
+        // Extract payload from JWT (middle part between dots)
+        let segments = token.components(separatedBy: ".")
+        guard segments.count > 1 else { return }
+        
+        var base64 = segments[1]
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        
+        // Pad base64 string if needed
+        while base64.count % 4 != 0 {
+            base64 += "="
+        }
+        
+        guard let data = Data(base64Encoded: base64) else { return }
+        
+        do {
+            // Decode JWT payload, assuming it contains user information
+            // You might need to adjust the struct based on your JWT payload structure
+            struct JWTPayload: Codable {
+                let sub: String
+                let id: Int
+                let username: String
+                let role: String
+            }
+            
+            let payload = try JSONDecoder().decode(JWTPayload.self, from: data)
+            
+            DispatchQueue.main.async {
+                self.currentUser = User(id: payload.id, username: payload.username, role: payload.role)
+            }
+        } catch {
+            print("Failed to decode token: \(error)")
+        }
+    }
+    
+    // Check if user is authenticated
+    func checkAuthentication() {
+        if let token = retrieveToken() {
+            decodeUserFromToken(token)
+            DispatchQueue.main.async {
+                self.isAuthenticated = true
+            }
+        }
+    }
+    
+    // Logout - remove token and reset state
     func logout() {
-        keychain.delete(tokenKey)
-    }
-    
-    func getCurrentUser() -> AnyPublisher<User, Error> {
-        if let token = getToken() {
-            do {
-                let user = try getUserFromToken(token)
-                return Just(user)
-                    .setFailureType(to: Error.self)
-                    .eraseToAnyPublisher()
-            } catch {
-                return Fail(error: error).eraseToAnyPublisher()
-            }
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: keychainTokenKey
+        ]
+        
+        SecItemDelete(query as CFDictionary)
+        
+        DispatchQueue.main.async {
+            self.isAuthenticated = false
+            self.currentUser = nil
         }
-        
-        return Fail(error: APIError.unauthorized).eraseToAnyPublisher()
-    }
-    
-    // Async version of getCurrentUser
-    func getCurrentUser() async throws -> User {
-        if let token = getToken() {
-            return try getUserFromToken(token)
-        }
-        
-        throw APIError.unauthorized
-    }
-    
-    // Refresh user profile from API
-    func refreshUserProfile() async throws -> User {
-        guard let apiClient = apiClient else {
-            throw APIError.unknown
-        }
-        
-        return try await apiClient.getDriverProfile()
-    }
-    
-    private func getUserFromToken(_ token: String) throws -> User {
-        // Decode JWT payload
-        let payload: JWTPayload = try JWTDecoder.decode(token: token)
-        
-        // Check if token is expired
-        if payload.isExpired {
-            logout()
-            throw APIError.unauthorized
-        }
-        
-        return payload.toUser()
     }
 } 

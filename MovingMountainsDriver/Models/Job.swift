@@ -1,72 +1,66 @@
 import Foundation
 
-struct Job: Identifiable, Codable {
+struct JobDTO: Identifiable, Codable {
     let id: Int
-    let title: String
-    let description: String
-    let address: String
+    let shipmentId: Int
+    let driverId: Int?
     let status: String
-    let assignedTo: Int
-    let clientName: String
-    let clientPhone: String
-    let scheduledDate: Date
-    let estimatedDuration: TimeInterval
-    let shipments: [String] // IDs of related shipments
-    let createdAt: Date?
-    let updatedAt: Date?
+    let shipmentType: String?
+    let pickupAddress: String
+    let pickupCity: String
+    let pickupPostalCode: String
+    let deliveryAddress: String
+    let deliveryCity: String
+    let deliveryPostalCode: String
+    let quoteAmount: Double?
+    let createdAt: String
+    let province: String?
+    let vehicleId: Int?
+    let vehicleName: String?
+    let licensePlate: String?
     
     enum CodingKeys: String, CodingKey {
-        case id, title, description, address, status
-        case assignedTo = "assigned_to"
-        case clientName = "client_name"
-        case clientPhone = "client_phone"
-        case scheduledDate = "scheduled_date"
-        case estimatedDuration = "estimated_duration"
-        case shipments
+        case id, status, province
+        case shipmentId = "shipment_id"
+        case driverId = "driver_id"
+        case shipmentType = "shipment_type"
+        case pickupAddress = "pickup_address"
+        case pickupCity = "pickup_city"
+        case pickupPostalCode = "pickup_postal_code"
+        case deliveryAddress = "delivery_address"
+        case deliveryCity = "delivery_city"
+        case deliveryPostalCode = "delivery_postal_code"
+        case quoteAmount = "quote_amount"
         case createdAt = "created_at"
-        case updatedAt = "updated_at"
+        case vehicleId = "vehicle_id"
+        case vehicleName = "vehicle_name"
+        case licensePlate = "license_plate"
     }
-    
-    // Helper computed properties
-    var isCompleted: Bool {
-        return status == "completed"
-    }
-    
-    var isPending: Bool {
-        return status == "pending"
-    }
-    
-    var isInProgress: Bool {
-        return status == "in_progress"
-    }
-    
-    var isCancelled: Bool {
-        return status == "cancelled"
-    }
-    
+}
+
+extension JobDTO {
     var statusColor: String {
         switch status {
-        case "pending":
-            return "orange"
-        case "in_progress":
-            return "blue"
-        case "completed":
-            return "green"
-        case "cancelled":
-            return "red"
-        default:
-            return "gray"
+        case .pending: return "yellow"
+        case .accepted: return "blue"
+        case .inProgress: return "orange"
+        case .completed: return "green"
+        case .cancelled: return "red"
         }
     }
     
-    var formattedDuration: String {
-        let hours = Int(estimatedDuration) / 3600
-        let minutes = (Int(estimatedDuration) % 3600) / 60
-        
-        if hours > 0 {
-            return "\(hours)h \(minutes)m"
-        } else {
-            return "\(minutes)m"
-        }
+    var formattedCreatedDate: String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: createdAt)
+    }
+    
+    var isActive: Bool {
+        return status == .accepted || status == .inProgress
+    }
+    
+    var canBeAccepted: Bool {
+        return status == .pending
     }
 } 

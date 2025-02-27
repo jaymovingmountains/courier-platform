@@ -1,421 +1,519 @@
 import SwiftUI
+import MapKit
+
+class JobDetailsViewModel: ObservableObject {
+    @Published var job: JobDTO?
+    @Published var isLoading = false
+    @Published var errorMessage: String?
+    @Published var directions: MKDirections.Response?
+    
+    private let apiClient: APIClient
+    private let jobId: Int
+    
+    init(apiClient: APIClient, jobId: Int) {
+        self.apiClient = apiClient
+        self.jobId = jobId
+    }
+    
+    func fetchJobDetails() {
+        isLoading = true
+        errorMessage = nil
+        
+        Task {
+            do {
+                let job: JobDTO = try await apiClient.fetch(
+                    endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)"
+                )
+                
+                DispatchQueue.main.async {
+                    self.job = job
+                    self.calculateRoute()
+                    self.isLoading = false
+                }
+            } catch let error as APIError {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.message
+                    self.isLoading = false
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = "An unexpected error occurred"
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+    
+    func calculateRoute() {
+        guard let job = job else { return }
+        
+        let geocoder = CLGeocoder()
+        
+        // First, geocode the pickup address
+        let pickupAddressString = "\(job.pickupAddress), \(job.pickupCity), \(job.pickupPostalCode)"
+        geocoder.geocodeAddressString(pickupAddressString) { [weak self] pickupPlacemarks, pickupError in
+            if let pickupError = pickupError {
+                print("Pickup geocoding error: \(pickupError.localizedDescription)")
+                return
+            }
+            
+            guard let pickupPlacemark = pickupPlacemarks?.first,
+                  let pickupLocation = pickupPlacemark.location else {
+                print("No pickup location found")
+                return
+            }
+            
+            // Then, geocode the delivery address
+            let deliveryAddressString = "\(job.deliveryAddress), \(job.deliveryCity), \(job.deliveryPostalCode)"
+            geocoder.geocodeAddressString(deliveryAddressString) { [weak self] deliveryPlacemarks, deliveryError in
+                if let deliveryError = deliveryError {
+                    print("Delivery geocoding error: \(deliveryError.localizedDescription)")
+                    return
+                }
+                
+                guard let deliveryPlacemark = deliveryPlacemarks?.first,
+                      let deliveryLocation = deliveryPlacemark.location else {
+                    print("No delivery location found")
+                    return
+                }
+                
+                // Create the route request
+                let request = MKDirections.Request()
+                request.source = MKMapItem(placemark: MKPlacemark(coordinate: pickupLocation.coordinate))
+                request.destination = MKMapItem(placemark: MKPlacemark(coordinate: deliveryLocation.coordinate))
+                request.transportType = .automobile
+                
+                // Calculate the route
+                let directions = MKDirections(request: request)
+                directions.calculate { [weak self] response, error in
+                    if let error = error {
+                        print("Route calculation error: \(error.localizedDescription)")
+                        return
+                    }
+                    
+                    DispatchQueue.main.async {
+                        self?.directions = response
+                    }
+                }
+            }
+        }
+    }
+    
+    func updateJobStatus(to status: String) {
+        isLoading = true
+        errorMessage = nil
+        
+        Task {
+            do {
+                let updateBody = ["status": status]
+                let jsonData = try JSONSerialization.data(withJSONObject: updateBody)
+                
+                let updatedJob: JobDTO = try await apiClient.fetch(
+                    endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/status",
+                    method: "PUT",
+                    body: jsonData
+                )
+                
+                DispatchQueue.main.async {
+                    self.job = updatedJob
+                    self.isLoading = false
+                }
+            } catch let error as APIError {
+                DispatchQueue.main.async {
+                    self.errorMessage = error.message
+                    self.isLoading = false
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.errorMessage = "An unexpected error occurred"
+                    self.isLoading = false
+                }
+            }
+        }
+    }
+}
 
 struct JobDetailsView: View {
-    @ObservedObject var viewModel: JobDetailsViewModel
-    @State private var isUpdatingStatus = false
-    @State private var selectedStatus: Job.JobStatus?
+    @StateObject private var viewModel: JobDetailsViewModel
+    @State private var mapRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
+        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
+    )
     
-    var jobId: String
-    var onBackTapped: () -> Void
-    
-    init(jobId: String, viewModel: JobDetailsViewModel, onBackTapped: @escaping () -> Void) {
-        self.jobId = jobId
-        self.viewModel = viewModel
-        self.onBackTapped = onBackTapped
+    init(apiClient: APIClient, jobId: Int) {
+        _viewModel = StateObject(wrappedValue: JobDetailsViewModel(apiClient: apiClient, jobId: jobId))
     }
     
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Header with back button
-                HStack {
-                    Button(action: onBackTapped) {
-                        HStack {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                        .foregroundColor(.blue)
+                // Status section
+                if let job = viewModel.job {
+                    StatusBadgeView(status: job.status)
+                    
+                    // Map View
+                    MapView(directions: viewModel.directions)
+                        .frame(height: 250)
+                        .cornerRadius(12)
+                    
+                    // Address section
+                    AddressSection(job: job)
+                    
+                    // Vehicle section if available
+                    if let vehicleName = job.vehicleName, let licensePlate = job.licensePlate {
+                        VehicleInfoView(vehicleName: vehicleName, licensePlate: licensePlate)
                     }
                     
-                    Spacer()
-                }
-                .padding(.bottom, 8)
-                
-                if viewModel.isLoading && viewModel.job == nil {
-                    loadingView
-                } else if let job = viewModel.job {
-                    // Job details
-                    jobDetailSection(job)
-                    
-                    Divider()
-                    
-                    // Client info
-                    clientInfoSection(job)
-                    
-                    Divider()
-                    
-                    // Shipments
-                    shipmentSection
-                    
-                    Divider()
-                    
-                    // Actions section
-                    actionSection(job)
-                } else if let error = viewModel.error {
-                    errorView(error)
+                    // Action buttons
+                    ActionButtonsView(job: job, onStatusUpdate: { newStatus in
+                        viewModel.updateJobStatus(to: newStatus)
+                    })
                 }
             }
             .padding()
         }
-        .navigationBarHidden(true)
+        .navigationTitle("Job #\(viewModel.job?.id ?? 0)")
+        .overlay(
+            Group {
+                if viewModel.isLoading {
+                    LoadingView()
+                }
+            }
+        )
+        .alert(isPresented: Binding<Bool>(
+            get: { viewModel.errorMessage != nil },
+            set: { if !$0 { viewModel.errorMessage = nil } }
+        )) {
+            Alert(
+                title: Text("Error"),
+                message: Text(viewModel.errorMessage ?? "Unknown error"),
+                dismissButton: .default(Text("OK"))
+            )
+        }
         .onAppear {
-            viewModel.loadJob(jobId: jobId)
+            viewModel.fetchJobDetails()
         }
-        .actionSheet(isPresented: $isUpdatingStatus) {
-            ActionSheet(
-                title: Text("Update Job Status"),
-                message: Text("Select the new status for this job"),
-                buttons: [
-                    .default(Text("Pending")) {
-                        updateJobStatus(.pending)
-                    },
-                    .default(Text("In Progress")) {
-                        updateJobStatus(.inProgress)
-                    },
-                    .default(Text("Completed")) {
-                        updateJobStatus(.completed)
-                    },
-                    .destructive(Text("Cancelled")) {
-                        updateJobStatus(.cancelled)
-                    },
-                    .cancel()
-                ]
-            )
-        }
-    }
-    
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .progressViewStyle(CircularProgressViewStyle())
-                .scaleEffect(1.5)
-            
-            Text("Loading job details...")
-                .font(.headline)
-                .foregroundColor(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 100)
-    }
-    
-    private func errorView(_ error: String) -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
-                .foregroundColor(.red)
-            
-            Text("Error loading job")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            Text(error)
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-            
-            Button("Retry") {
-                viewModel.loadJob(jobId: jobId)
-            }
-            .padding()
-            .foregroundColor(.white)
-            .background(Color.blue)
-            .cornerRadius(10)
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-    }
-    
-    private func jobDetailSection(_ job: Job) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(job.title)
-                .font(.title)
-                .fontWeight(.bold)
-            
-            StatusBadge(status: job.status)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top) {
-                    Image(systemName: "location.fill")
-                        .foregroundColor(.blue)
-                        .frame(width: 24)
-                    
-                    Text(job.address)
-                        .font(.body)
-                }
-                
-                HStack {
-                    Image(systemName: "calendar")
-                        .foregroundColor(.blue)
-                        .frame(width: 24)
-                    
-                    Text(job.scheduledDate.formattedString(format: "EEEE, MMM d, yyyy"))
-                        .font(.body)
-                }
-                
-                HStack {
-                    Image(systemName: "clock")
-                        .foregroundColor(.blue)
-                        .frame(width: 24)
-                    
-                    Text(job.scheduledDate.formattedString(format: "h:mm a"))
-                        .font(.body)
-                    
-                    Text("(\(Int(job.estimatedDuration / 60)) min)")
-                        .font(.body)
-                        .foregroundColor(.secondary)
-                }
-            }
-            
-            Text(job.description)
-                .font(.body)
-                .padding(.vertical, 4)
-        }
-    }
-    
-    private func clientInfoSection(_ job: Job) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Client Information")
-                .font(.headline)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "person.fill")
-                        .foregroundColor(.blue)
-                        .frame(width: 24)
-                    
-                    Text(job.clientName)
-                        .font(.body)
-                }
-                
-                HStack {
-                    Image(systemName: "phone.fill")
-                        .foregroundColor(.blue)
-                        .frame(width: 24)
-                    
-                    Button(action: {
-                        let telephone = "tel://"
-                        let formattedString = telephone + job.clientPhone.filter { $0.isNumber }
-                        guard let url = URL(string: formattedString) else { return }
-                        UIApplication.shared.open(url)
-                    }) {
-                        Text(job.clientPhone)
-                            .font(.body)
-                            .foregroundColor(.blue)
-                            .underline()
-                    }
-                }
-            }
-        }
-    }
-    
-    private var shipmentSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Shipments (\(viewModel.shipments.count))")
-                .font(.headline)
-            
-            if viewModel.isLoading && viewModel.job != nil {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            } else if viewModel.shipments.isEmpty {
-                Text("No shipments found.")
-                    .font(.body)
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding()
-            } else {
-                ForEach(viewModel.shipments) { shipment in
-                    shipmentCard(shipment)
-                }
-            }
-        }
-    }
-    
-    private func shipmentCard(_ shipment: Shipment) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Tracking #\(shipment.trackingNumber)")
-                    .font(.headline)
-                
-                Spacer()
-                
-                Text(shipment.status.rawValue.capitalized)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(shipmentStatusColor(shipment.status).opacity(0.2))
-                    .foregroundColor(shipmentStatusColor(shipment.status))
-                    .cornerRadius(6)
-            }
-            
-            Text(shipment.description)
-                .font(.body)
-                .foregroundColor(.secondary)
-            
-            HStack {
-                Text("Weight: \(Formatters.formatWeight(shipment.weight))")
-                
-                Spacer()
-                
-                Text("Dimensions: \(shipment.dimensions.formattedDimensions)")
-            }
-            .font(.caption)
-            .foregroundColor(.secondary)
-            
-            if !shipment.specialInstructions.isEmpty {
-                Text("Special Instructions:")
-                    .font(.caption)
-                    .fontWeight(.bold)
-                
-                Text(shipment.specialInstructions)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-    }
-    
-    private func shipmentStatusColor(_ status: Shipment.ShipmentStatus) -> Color {
-        switch status {
-        case .pending:
-            return .orange
-        case .inTransit:
-            return .blue
-        case .delivered:
-            return .green
-        case .damaged:
-            return .red
-        case .lost:
-            return .purple
-        }
-    }
-    
-    private func actionSection(_ job: Job) -> some View {
-        VStack(spacing: 16) {
-            Text("Actions")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            PrimaryButton(
-                title: "Update Status",
-                action: {
-                    isUpdatingStatus = true
-                },
-                icon: "arrow.triangle.2.circlepath"
-            )
-            
-            NavigationLink(destination: UpdateStatusView(jobId: job.id)) {
-                HStack {
-                    Image(systemName: "camera.fill")
-                    Text("Take Photos & Notes")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .padding()
-                .foregroundColor(.blue)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-            }
-            
-            Button(action: {
-                openMapsForDirections(address: job.address)
-            }) {
-                HStack {
-                    Image(systemName: "map.fill")
-                    Text("Get Directions")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .padding()
-                .foregroundColor(.blue)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-            }
-            
-            Button(action: {
-                callClient(phoneNumber: job.clientPhone)
-            }) {
-                HStack {
-                    Image(systemName: "phone.fill")
-                    Text("Call Client")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .padding()
-                .foregroundColor(.blue)
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
-            }
-        }
-    }
-    
-    private func updateJobStatus(_ status: Job.JobStatus) {
-        selectedStatus = status
-        viewModel.updateJobStatus(status: status)
-    }
-    
-    private func openMapsForDirections(address: String) {
-        let formattedAddress = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: "http://maps.apple.com/?daddr=\(formattedAddress)&dirflg=d") {
-            UIApplication.shared.open(url)
-        }
-    }
-    
-    private func callClient(phoneNumber: String) {
-        let telephone = "tel://"
-        let formattedString = telephone + phoneNumber.filter { $0.isNumber }
-        guard let url = URL(string: formattedString) else { return }
-        UIApplication.shared.open(url)
     }
 }
 
-struct JobDetailsView_Previews: PreviewProvider {
-    static var previews: some View {
-        let viewModel = JobDetailsViewModel()
-        
-        // Mock data for preview
-        viewModel.job = Job(
-            id: "1",
-            title: "Office Relocation",
-            description: "Move office equipment from old location to new office",
-            address: "123 Business Park, Suite 456, San Francisco, CA 94107",
-            status: .inProgress,
-            assignedTo: "driver-123",
-            clientName: "Acme Corp",
-            clientPhone: "(555) 123-4567",
-            scheduledDate: Date(),
-            estimatedDuration: 3600, // 1 hour in seconds
-            shipments: ["ship-1", "ship-2"]
-        )
-        
-        viewModel.shipments = [
-            Shipment(
-                id: "ship-1",
-                jobId: "1",
-                description: "Office desks and chairs",
-                weight: 450.5,
-                dimensions: Shipment.Dimensions(length: 72, width: 36, height: 30),
-                status: .inTransit,
-                trackingNumber: "TRK123456",
-                specialInstructions: "Handle with care, expensive equipment"
-            ),
-            Shipment(
-                id: "ship-2",
-                jobId: "1",
-                description: "Filing cabinets",
-                weight: 320.0,
-                dimensions: Shipment.Dimensions(length: 48, width: 24, height: 60),
-                status: .inTransit,
-                trackingNumber: "TRK789012",
-                specialInstructions: ""
-            )
-        ]
-        
-        return NavigationView {
-            JobDetailsView(jobId: "1", viewModel: viewModel, onBackTapped: {})
+// Helper Components
+
+struct StatusBadgeView: View {
+    let status: String
+    
+    var statusColor: Color {
+        switch status {
+        case "pending": return .yellow
+        case "accepted": return .blue
+        case "in_progress": return .orange
+        case "completed": return .green
+        case "cancelled": return .red
+        default: return .gray
         }
+    }
+    
+    var statusText: String {
+        switch status {
+        case "pending": return "Pending"
+        case "accepted": return "Accepted"
+        case "in_progress": return "In Progress"
+        case "completed": return "Completed"
+        case "cancelled": return "Cancelled"
+        default: return status.capitalized
+        }
+    }
+    
+    var body: some View {
+        Text(statusText)
+            .font(.subheadline)
+            .fontWeight(.medium)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(statusColor.opacity(0.2))
+            .foregroundColor(statusColor)
+            .cornerRadius(8)
+    }
+}
+
+struct AddressSection: View {
+    let job: JobDTO
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Delivery Details")
+                .font(.headline)
+                .padding(.bottom, 4)
+            
+            // Pickup Address
+            VStack(alignment: .leading, spacing: 4) {
+                Text("PICKUP")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(job.pickupAddress)
+                    .font(.body)
+                    .fontWeight(.medium)
+                
+                Text("\(job.pickupCity), \(job.pickupPostalCode)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.bottom, 8)
+            
+            // Delivery Address
+            VStack(alignment: .leading, spacing: 4) {
+                Text("DELIVERY")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Text(job.deliveryAddress)
+                    .font(.body)
+                    .fontWeight(.medium)
+                
+                Text("\(job.deliveryCity), \(job.deliveryPostalCode)")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Quote Amount if available
+            if let quoteAmount = job.quoteAmount {
+                Divider()
+                    .padding(.vertical, 8)
+                
+                HStack {
+                    Text("Quote Amount")
+                        .font(.subheadline)
+                    
+                    Spacer()
+                    
+                    Text("$\(String(format: "%.2f", quoteAmount))")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+}
+
+struct VehicleInfoView: View {
+    let vehicleName: String
+    let licensePlate: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Vehicle Information")
+                .font(.headline)
+                .padding(.bottom, 4)
+            
+            HStack {
+                Image(systemName: "car.fill")
+                    .foregroundColor(.accentColor)
+                
+                Text(vehicleName)
+                    .font(.body)
+            }
+            
+            HStack {
+                Image(systemName: "captions.bubble.fill")
+                    .foregroundColor(.accentColor)
+                
+                Text(licensePlate)
+                    .font(.body)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+}
+
+struct ActionButtonsView: View {
+    let job: JobDTO
+    let onStatusUpdate: (String) -> Void
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            // Different buttons depending on job status
+            switch job.status {
+            case "pending":
+                Button(action: {
+                    onStatusUpdate("accepted")
+                }) {
+                    ActionButton(title: "Accept Job", iconName: "checkmark.circle", color: .blue)
+                }
+                
+            case "accepted":
+                Button(action: {
+                    onStatusUpdate("in_progress")
+                }) {
+                    ActionButton(title: "Start Delivery", iconName: "play.circle", color: .green)
+                }
+                
+            case "in_progress":
+                Button(action: {
+                    onStatusUpdate("completed")
+                }) {
+                    ActionButton(title: "Complete Delivery", iconName: "flag.checkered", color: .green)
+                }
+                
+            case "completed":
+                Text("This delivery has been completed")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(.secondarySystemBackground))
+                    .cornerRadius(8)
+                
+            default:
+                EmptyView()
+            }
+            
+            // Navigation button
+            if job.status != "completed" && job.status != "cancelled" {
+                Link(destination: URL(string: "maps://?daddr=\(job.deliveryAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryCity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryPostalCode.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!) {
+                    ActionButton(title: "Open in Maps", iconName: "map", color: .blue)
+                }
+            }
+        }
+    }
+}
+
+struct ActionButton: View {
+    let title: String
+    let iconName: String
+    let color: Color
+    
+    var body: some View {
+        HStack {
+            Image(systemName: iconName)
+            Text(title)
+                .fontWeight(.semibold)
+        }
+        .foregroundColor(.white)
+        .frame(maxWidth: .infinity)
+        .padding()
+        .background(color)
+        .cornerRadius(8)
+    }
+}
+
+struct MapView: UIViewRepresentable {
+    var directions: MKDirections.Response?
+    
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView()
+        mapView.delegate = context.coordinator
+        return mapView
+    }
+    
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        mapView.removeOverlays(mapView.overlays)
+        mapView.removeAnnotations(mapView.annotations)
+        
+        if let directions = directions, let route = directions.routes.first {
+            mapView.addOverlay(route.polyline)
+            
+            // Add annotations for source and destination
+            if let sourceCoordinate = route.steps.first?.polyline.coordinate,
+               let destinationCoordinate = route.steps.last?.polyline.coordinate {
+                
+                let sourceAnnotation = MKPointAnnotation()
+                sourceAnnotation.coordinate = sourceCoordinate
+                sourceAnnotation.title = "Pickup"
+                
+                let destinationAnnotation = MKPointAnnotation()
+                destinationAnnotation.coordinate = destinationCoordinate
+                destinationAnnotation.title = "Delivery"
+                
+                mapView.addAnnotations([sourceAnnotation, destinationAnnotation])
+            }
+            
+            // Set the map region to show the entire route
+            let padding: CGFloat = 50
+            mapView.setVisibleMapRect(route.polyline.boundingMapRect, edgePadding: UIEdgeInsets(top: padding, left: padding, bottom: padding, right: padding), animated: true)
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, MKMapViewDelegate {
+        var parent: MapView
+        
+        init(_ parent: MapView) {
+            self.parent = parent
+        }
+        
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor.systemBlue
+                renderer.lineWidth = 5
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+        
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if annotation is MKUserLocation {
+                return nil
+            }
+            
+            let identifier = "pin"
+            var annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: identifier) as? MKMarkerAnnotationView
+            
+            if annotationView == nil {
+                annotationView = MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+                annotationView?.canShowCallout = true
+            } else {
+                annotationView?.annotation = annotation
+            }
+            
+            // Customize pin color based on title
+            if annotation.title == "Pickup" {
+                annotationView?.markerTintColor = UIColor.systemGreen
+            } else if annotation.title == "Delivery" {
+                annotationView?.markerTintColor = UIColor.systemRed
+            }
+            
+            return annotationView
+        }
+    }
+}
+
+struct LoadingView: View {
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .edgesIgnoringSafeArea(.all)
+            
+            VStack {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .padding()
+                
+                Text("Loading...")
+                    .foregroundColor(.white)
+                    .font(.headline)
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemBackground).opacity(0.8))
+            )
+        }
+    }
+}
+
+#Preview {
+    NavigationView {
+        JobDetailsView(apiClient: APIClient(authService: AuthService()), jobId: 123)
     }
 } 

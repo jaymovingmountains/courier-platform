@@ -1,36 +1,13 @@
 import Foundation
 
-struct Vehicle: Identifiable, Codable {
-    let id: String
-    let make: String
-    let model: String
-    let year: Int
+struct VehicleDTO: Identifiable, Codable {
+    let id: Int
+    let vehicleName: String
     let licensePlate: String
-    let vin: String
-    let type: VehicleType
-    let capacity: Double // in cubic feet
-    let maxWeight: Double // in pounds
-    let currentStatus: VehicleStatus
-    let maintenanceHistory: [MaintenanceRecord]
     
-    enum VehicleType: String, Codable {
-        case box = "box_truck"
-        case van = "cargo_van"
-        case semi = "semi_truck"
-        case flatbed = "flatbed"
-    }
-    
-    enum VehicleStatus: String, Codable {
-        case available = "available"
-        case inUse = "in_use"
-        case maintenance = "in_maintenance"
-        case outOfService = "out_of_service"
-    }
-    
-    struct MaintenanceRecord: Codable {
-        let date: Date
-        let description: String
-        let cost: Double
-        let mileage: Int
+    enum CodingKeys: String, CodingKey {
+        case id
+        case vehicleName = "vehicle_name"
+        case licensePlate = "license_plate"
     }
 } 
