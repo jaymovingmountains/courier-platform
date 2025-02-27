@@ -38,29 +38,37 @@ struct JobDTO: Identifiable, Codable {
     }
 }
 
+// Job status constants
+struct JobStatusConstants {
+    static let pending = "pending"
+    static let accepted = "accepted" 
+    static let inProgress = "in_progress"
+    static let completed = "completed"
+    static let cancelled = "cancelled"
+}
+
 extension JobDTO {
     var statusColor: String {
         switch status {
-        case .pending: return "yellow"
-        case .accepted: return "blue"
-        case .inProgress: return "orange"
-        case .completed: return "green"
-        case .cancelled: return "red"
+        case JobStatusConstants.pending: return "yellow"
+        case JobStatusConstants.accepted: return "blue"
+        case JobStatusConstants.inProgress: return "orange"
+        case JobStatusConstants.completed: return "green"
+        case JobStatusConstants.cancelled: return "red"
+        default: return "gray"
         }
     }
     
     var formattedCreatedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: createdAt)
+        // Simply return the createdAt string as is
+        return createdAt
     }
     
     var isActive: Bool {
-        return status == .accepted || status == .inProgress
+        return status == JobStatusConstants.accepted || status == JobStatusConstants.inProgress
     }
     
     var canBeAccepted: Bool {
-        return status == .pending
+        return status == JobStatusConstants.pending
     }
-} 
+}
