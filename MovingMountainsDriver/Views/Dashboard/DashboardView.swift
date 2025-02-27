@@ -63,7 +63,7 @@ struct DashboardView: View {
                 .overlay(
                     Group {
                         if viewModel.isLoading {
-                            LoadingView()
+                            DashboardLoadingView()
                         }
                     }
                 )
@@ -299,7 +299,6 @@ struct NoActiveJobView: View {
         .padding()
         .background(Color(.systemBackground))
         .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
     }
 }
 
@@ -326,7 +325,7 @@ struct EmptyStateView: View {
     }
 }
 
-struct LoadingView: View {
+struct DashboardLoadingView: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.1)

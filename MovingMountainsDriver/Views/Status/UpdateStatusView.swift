@@ -128,7 +128,7 @@ class UpdateStatusViewModel: ObservableObject {
 
 struct UpdateStatusView: View {
     @StateObject private var viewModel: UpdateStatusViewModel
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss: DismissAction
     
     init(apiClient: APIClient, jobId: Int) {
         _viewModel = StateObject(wrappedValue: UpdateStatusViewModel(apiClient: apiClient, jobId: jobId))
