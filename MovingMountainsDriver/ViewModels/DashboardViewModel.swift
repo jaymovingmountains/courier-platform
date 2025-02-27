@@ -442,13 +442,18 @@ final class DashboardViewModel: ObservableObject {
                 }
                 
                 // Standard method if debug fails
-                print("🔍 ACCEPT JOB: Falling back to standard API method for job acceptance")
-                let endpoint = APIConstants.jobAcceptURL(id: jobId)
-                print("🔍 ACCEPT JOB: Using endpoint: \(endpoint) with POST method")
+                print("🔍 ACCEPT JOB: Falling back to status update method for job acceptance")
+                let endpoint = APIConstants.jobStatusUpdateURL(id: jobId)
+                print("🔍 ACCEPT JOB: Using endpoint: \(endpoint) with PUT method")
+                
+                // Create status update body
+                let updateBody = ["status": "assigned"]
+                let jsonData = try JSONSerialization.data(withJSONObject: updateBody)
                 
                 let updatedJob: JobDTO = try await apiClient.fetch(
                     endpoint: endpoint,
-                    method: "POST"
+                    method: "PUT",
+                    body: jsonData
                 )
                 
                 print("✅ ACCEPT JOB: Successfully accepted job ID: \(jobId) using standard method")
@@ -481,12 +486,17 @@ final class DashboardViewModel: ObservableObject {
         print("🔄 ACCEPT JOB: Retrying job acceptance for ID: \(jobId), attempt \(acceptRetryCount + 1)/\(maxRetryCount)")
         
         do {
-            let endpoint = APIConstants.jobAcceptURL(id: jobId)
-            print("🔍 ACCEPT JOB RETRY: Using endpoint: \(endpoint) with POST method")
+            let endpoint = APIConstants.jobStatusUpdateURL(id: jobId)
+            print("🔍 ACCEPT JOB RETRY: Using endpoint: \(endpoint) with PUT method")
+            
+            // Create status update body
+            let updateBody = ["status": "assigned"]
+            let jsonData = try JSONSerialization.data(withJSONObject: updateBody)
             
             let updatedJob: JobDTO = try await apiClient.fetch(
                 endpoint: endpoint,
-                method: "POST"
+                method: "PUT",
+                body: jsonData
             )
             
             print("✅ ACCEPT JOB RETRY: Successfully accepted job ID: \(jobId) on retry attempt \(acceptRetryCount)")

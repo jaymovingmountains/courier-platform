@@ -481,14 +481,15 @@ class APIClient {
     
     /// Debug method to accept a job
     func debugAcceptJob(jobId: Int) async -> Result<JobDTO, APIError> {
-        let urlString = "\(APIConstants.baseURL)/jobs/\(jobId)/accept"
+        // Use status update endpoint instead of accept endpoint
+        let urlString = "\(APIConstants.baseURL)/jobs/\(jobId)/status"
         
         guard let url = URL(string: urlString) else {
             print("📡 ERROR: Invalid URL: \(urlString)")
             return .failure(.invalidURL)
         }
         
-        print("📡 API REQUEST: Debug Accept Job")
+        print("📡 API REQUEST: Debug Accept Job (via status update)")
         print("📡 URL: \(url.absoluteString)")
         
         // Token retrieval
@@ -497,13 +498,21 @@ class APIClient {
             return .failure(.unauthorized)
         }
         
+        // Create status update body
+        let updateBody = ["status": "assigned"]
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: updateBody) else {
+            print("📡 ERROR: Failed to serialize status update body")
+            return .failure(.unknown)
+        }
+        
         var request = URLRequest(url: url)
-        request.httpMethod = "POST"
+        request.httpMethod = "PUT"
+        request.httpBody = jsonData
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         // Log the request
-        logRequest(request, endpoint: "/jobs/\(jobId)/accept")
+        logRequest(request, endpoint: "/jobs/\(jobId)/status")
         
         do {
             let (data, response) = try await session.data(for: request)
