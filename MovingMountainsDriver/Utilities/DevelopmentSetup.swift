@@ -79,7 +79,9 @@ extension JobDetailsView {
 extension UpdateStatusView {
     static var previews: some View {
         let mockAPIClient = MockAPIClient(authService: AuthService())
-        return UpdateStatusView(apiClient: mockAPIClient, jobId: 1)
+        return UpdateStatusView(apiClient: mockAPIClient, jobId: 1, onDismiss: {
+            print("Preview dismiss action")
+        })
     }
 }
 #endif 

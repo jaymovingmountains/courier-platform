@@ -128,10 +128,13 @@ class UpdateStatusViewModel: ObservableObject {
 
 struct UpdateStatusView: View {
     @StateObject private var viewModel: UpdateStatusViewModel
-    @Environment(\.dismiss) private var dismiss: DismissAction
     
-    init(apiClient: APIClient, jobId: Int) {
+    // Use a closure instead of the environment for dismissal
+    var onDismiss: (() -> Void)?
+    
+    init(apiClient: APIClient, jobId: Int, onDismiss: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: UpdateStatusViewModel(apiClient: apiClient, jobId: jobId))
+        self.onDismiss = onDismiss
     }
     
     var body: some View {
@@ -234,7 +237,8 @@ struct UpdateStatusView: View {
                 title: Text("Success"),
                 message: Text("Status updated successfully"),
                 dismissButton: .default(Text("OK")) {
-                    dismiss()
+                    // Use the callback for dismissal instead of Environment
+                    onDismiss?()
                 }
             )
         }
