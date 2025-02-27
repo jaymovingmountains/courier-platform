@@ -401,14 +401,16 @@ final class JobDetailsViewModel: ObservableObject {
 
 struct JobDetailsView: View {
     @StateObject private var viewModel: JobDetailsViewModel
-    @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var mapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
     )
     
-    init(apiClient: APIClient, jobId: Int) {
+    var onDismiss: (() -> Void)?
+    
+    init(apiClient: APIClient, jobId: Int, onDismiss: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: JobDetailsViewModel(apiClient: apiClient, jobId: jobId))
+        self.onDismiss = onDismiss
     }
     
     var body: some View {
@@ -445,7 +447,7 @@ struct JobDetailsView: View {
                             viewModel.fetchJobDetails()
                         },
                         onBackToDashboard: {
-                            presentationMode.wrappedValue.dismiss()
+                            onDismiss?()
                         }
                     )
                 }
@@ -955,6 +957,10 @@ struct LoadingView: View {
 
 #Preview {
     NavigationView {
-        JobDetailsView(apiClient: APIClient(authService: AuthService()), jobId: 123)
+        JobDetailsView(
+            apiClient: APIClient(authService: AuthService()), 
+            jobId: 123,
+            onDismiss: {}
+        )
     }
 } 

@@ -193,7 +193,11 @@ struct ActiveJobCard: View {
             }
             
             HStack {
-                NavigationLink(destination: JobDetailsView(apiClient: apiClient, jobId: job.id)) {
+                NavigationLink(destination: JobDetailsView(
+                    apiClient: apiClient, 
+                    jobId: job.id,
+                    onDismiss: {}
+                )) {
                     Text("View Details")
                         .font(.subheadline)
                         .foregroundColor(.accentColor)
@@ -301,7 +305,11 @@ struct JobCard: View {
                 }
             }
             
-            NavigationLink(destination: JobDetailsView(apiClient: apiClient, jobId: job.id)) {
+            NavigationLink(destination: JobDetailsView(
+                apiClient: apiClient, 
+                jobId: job.id,
+                onDismiss: {}
+            )) {
                 Text("View Details")
                     .font(.subheadline)
                     .foregroundColor(.accentColor)

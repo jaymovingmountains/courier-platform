@@ -12,9 +12,9 @@ class MockDataGenerator {
                 id: i,
                 shipperId: i,
                 driverId: i % 2 == 0 ? 1 : nil,
-                status: i % 4 == 0 ? "assigned" : 
+                status: JobStatus(rawValue: i % 4 == 0 ? "assigned" : 
                        i % 4 == 1 ? "picked_up" : 
-                       i % 4 == 2 ? "in_transit" : "delivered",
+                       i % 4 == 2 ? "in_transit" : "delivered") ?? .pending,
                 shipmentType: i % 2 == 0 ? "Standard" : "Express",
                 pickupAddress: "\(100 + i) Pickup Street",
                 pickupCity: "San Francisco",
@@ -72,7 +72,7 @@ extension DashboardView {
 extension JobDetailsView {
     static var previews: some View {
         let mockAPIClient = MockAPIClient(authService: AuthService())
-        return JobDetailsView(apiClient: mockAPIClient, jobId: 1)
+        return JobDetailsView(apiClient: mockAPIClient, jobId: 1, onDismiss: {})
     }
 }
 
