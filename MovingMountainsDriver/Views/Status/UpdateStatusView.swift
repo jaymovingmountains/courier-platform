@@ -6,12 +6,19 @@ struct StatusOption: Identifiable {
     let description: String
 }
 
+// Create an identifiable alert item
+struct AlertItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let message: String
+}
+
 class UpdateStatusViewModel: ObservableObject {
     @Published var job: JobDTO?
     @Published var selectedStatus: String = ""
     @Published var notes: String = ""
     @Published var isLoading = false
-    @Published var errorMessage: String?
+    @Published var alertItem: AlertItem?
     @Published var isSuccess = false
     
     private let apiClient: APIClient
@@ -70,7 +77,10 @@ class UpdateStatusViewModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.errorMessage = "Failed to fetch job details"
+                    self.alertItem = AlertItem(
+                        title: "Error",
+                        message: "Failed to fetch job details"
+                    )
                     self.isLoading = false
                 }
             }
@@ -105,7 +115,10 @@ class UpdateStatusViewModel: ObservableObject {
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.errorMessage = "Failed to update status"
+                    self.alertItem = AlertItem(
+                        title: "Error",
+                        message: "Failed to update status"
+                    )
                     self.isLoading = false
                 }
             }
@@ -115,7 +128,7 @@ class UpdateStatusViewModel: ObservableObject {
 
 struct UpdateStatusView: View {
     @StateObject private var viewModel: UpdateStatusViewModel
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.presentationMode) private var presentationMode
     
     init(apiClient: APIClient, jobId: Int) {
         _viewModel = StateObject(wrappedValue: UpdateStatusViewModel(apiClient: apiClient, jobId: jobId))
@@ -209,13 +222,10 @@ struct UpdateStatusView: View {
         }
         .navigationTitle("Update Status")
         .navigationBarTitleDisplayMode(.inline)
-        .alert(item: Binding<String?>(
-            get: { viewModel.errorMessage },
-            set: { viewModel.errorMessage = $0 }
-        )) { error in
+        .alert(item: $viewModel.alertItem) { alertItem in 
             Alert(
-                title: Text("Error"),
-                message: Text(error),
+                title: Text(alertItem.title),
+                message: Text(alertItem.message),
                 dismissButton: .default(Text("OK"))
             )
         }
@@ -224,7 +234,7 @@ struct UpdateStatusView: View {
                 title: Text("Success"),
                 message: Text("Status updated successfully"),
                 dismissButton: .default(Text("OK")) {
-                    presentationMode.wrappedValue.dismiss()
+                    presentationMode.dismiss()
                 }
             )
         }
