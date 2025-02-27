@@ -401,7 +401,7 @@ final class JobDetailsViewModel: ObservableObject {
 
 struct JobDetailsView: View {
     @StateObject private var viewModel: JobDetailsViewModel
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var mapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
@@ -445,7 +445,7 @@ struct JobDetailsView: View {
                             viewModel.fetchJobDetails()
                         },
                         onBackToDashboard: {
-                            dismiss()
+                            presentationMode.wrappedValue.dismiss()
                         }
                     )
                 }
