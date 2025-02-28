@@ -3,7 +3,7 @@ import { Formik, Form, Field } from 'formik';
 import { useNavigate, Navigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import axios from 'axios';
-import { AuthContext } from '../App';
+import { AuthContext } from '../context/AuthContext';
 import { ReactComponent as Logo } from '../logo.svg';
 import './Login.css';
 

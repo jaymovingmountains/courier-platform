@@ -34,6 +34,94 @@ const validateProvinceCode = (province) => {
   return validProvinceCodes.includes(province.toUpperCase());
 };
 
+// Notification helper functions
+/**
+ * Creates a notification for a shipper about their shipment
+ * @param {number} shipperId - The ID of the shipper
+ * @param {number} shipmentId - The ID of the shipment
+ * @param {string} title - Notification title
+ * @param {string} message - Notification message
+ * @param {string} type - Notification type (quote, assigned, picked_up, in_transit, delivered)
+ * @returns {Promise<number|null>} ID of the created notification or null if failed
+ */
+async function createNotification(shipperId, shipmentId, title, message, type) {
+  try {
+    const result = await run(
+      `INSERT INTO notifications (shipper_id, shipment_id, title, message, type, created_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+      [shipperId, shipmentId, title, message, type]
+    );
+    
+    console.log(`✅ Created notification for shipper #${shipperId} about shipment #${shipmentId}: ${title}`);
+    return result.lastID;
+  } catch (error) {
+    console.error('❌ Error creating notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Gets notifications for a shipper
+ * @param {number} shipperId - The ID of the shipper
+ * @param {boolean} unreadOnly - Whether to get only unread notifications
+ * @param {number} limit - Maximum number of notifications to return
+ * @returns {Promise<Array>} List of notifications
+ */
+async function getNotifications(shipperId, unreadOnly = false, limit = 50) {
+  try {
+    let query = `
+      SELECT n.*, s.shipment_type, s.pickup_address, s.delivery_address,
+             u.username as driver_name
+      FROM notifications n
+      LEFT JOIN shipments s ON n.shipment_id = s.id
+      LEFT JOIN users u ON s.driver_id = u.id
+      WHERE n.shipper_id = ?
+    `;
+    
+    const params = [shipperId];
+    
+    if (unreadOnly) {
+      query += ` AND n.is_read = 0`;
+    }
+    
+    query += ` ORDER BY n.created_at DESC LIMIT ?`;
+    params.push(limit);
+    
+    return await all(query, params);
+  } catch (error) {
+    console.error('❌ Error getting notifications:', error);
+    return [];
+  }
+}
+
+/**
+ * Marks notifications as read
+ * @param {number} shipperId - The ID of the shipper
+ * @param {Array<number>} notificationIds - IDs of notifications to mark as read
+ * @returns {Promise<boolean>} Success or failure
+ */
+async function markNotificationsAsRead(shipperId, notificationIds) {
+  try {
+    if (!notificationIds || !notificationIds.length) return true;
+    
+    const placeholders = notificationIds.map(() => '?').join(',');
+    const params = [...notificationIds, shipperId];
+    
+    await run(
+      `UPDATE notifications 
+       SET is_read = 1
+       WHERE id IN (${placeholders})
+       AND shipper_id = ?`,
+      params
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Error marking notifications as read:', error);
+    return false;
+  }
+}
+
 const app = express();
 const port = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
@@ -431,6 +519,11 @@ app.put('/shipments/:id', async (req, res) => {
         return res.status(403).json({ error: 'Forbidden' });
     }
 
+    // Store the original status for comparison
+    const oldStatus = shipment.status;
+    const newStatus = req.body.status;
+    const statusChanged = newStatus && oldStatus !== newStatus;
+
     const updates = Object.keys(req.body)
       .filter(key => req.body[key] !== undefined)
       .map(key => `${key} = ?`)
@@ -438,6 +531,67 @@ app.put('/shipments/:id', async (req, res) => {
     const values = [...Object.values(req.body).filter(val => val !== undefined), req.params.id];
 
     await run(`UPDATE shipments SET ${updates} WHERE id = ?`, values);
+    
+    // Create notification for status changes
+    if (statusChanged && shipment.shipper_id) {
+      // Get shipment info for notification
+      const shipmentDetail = await get(`
+        SELECT s.*, o.name as origin_name, d.name as destination_name 
+        FROM shipments s
+        LEFT JOIN locations o ON s.origin_id = o.id
+        LEFT JOIN locations d ON s.destination_id = d.id
+        WHERE s.id = ?`, 
+        [req.params.id]
+      );
+      
+      if (shipmentDetail) {
+        let title = '';
+        let message = '';
+        
+        // Create appropriate notification based on status
+        switch (newStatus) {
+          case 'approved':
+            title = 'Shipment Approved';
+            message = `Your shipment from ${shipmentDetail.origin_name} to ${shipmentDetail.destination_name} has been approved.`;
+            break;
+          case 'picked_up':
+            title = 'Shipment Picked Up';
+            message = `Your shipment has been picked up and is now on its way.`;
+            break;
+          case 'in_transit':
+            title = 'Shipment In Transit';
+            message = `Your shipment is now in transit to its destination.`;
+            break;
+          case 'delivered':
+            title = 'Shipment Delivered';
+            message = `Your shipment has been successfully delivered to ${shipmentDetail.destination_name}.`;
+            break;
+          case 'completed':
+            title = 'Shipment Completed';
+            message = `Your shipment has been marked as completed.`;
+            break;
+          case 'cancelled':
+            title = 'Shipment Cancelled';
+            message = `Your shipment has been cancelled.`;
+            break;
+          default:
+            title = 'Shipment Update';
+            message = `Your shipment status has been updated to ${newStatus}.`;
+        }
+        
+        // Create the notification
+        const notificationId = await createNotification(
+          shipment.shipper_id,
+          shipment.id,
+          title,
+          message,
+          'status_update'
+        );
+        
+        console.log(`Notification created for shipment ${shipment.id} with ID ${notificationId}`);
+      }
+    }
+
     res.json({ message: 'Shipment updated' });
   } catch (error) {
     console.error('Update shipment error:', error);
@@ -674,7 +828,7 @@ app.put('/shipments/:id/quote', authorize(['admin']), async (req, res) => {
       return res.status(400).json({ error: 'Valid quote amount is required' });
     }
 
-    const shipment = await get('SELECT status FROM shipments WHERE id = ?', [req.params.id]);
+    const shipment = await get('SELECT * FROM shipments WHERE id = ?', [req.params.id]);
     if (!shipment) {
       return res.status(404).json({ error: 'Shipment not found' });
     }
@@ -683,6 +837,40 @@ app.put('/shipments/:id/quote', authorize(['admin']), async (req, res) => {
       'UPDATE shipments SET quote_amount = ?, status = ? WHERE id = ?',
       [quote_amount, 'quoted', req.params.id]
     );
+
+    // Create notification for quote
+    if (shipment.shipper_id) {
+      // Get shipment details for the notification
+      const shipmentDetail = await get(`
+        SELECT s.*, o.name as origin_name, d.name as destination_name 
+        FROM shipments s
+        LEFT JOIN locations o ON s.origin_id = o.id
+        LEFT JOIN locations d ON s.destination_id = d.id
+        WHERE s.id = ?`, 
+        [req.params.id]
+      );
+      
+      if (shipmentDetail) {
+        const formattedAmount = quote_amount.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD'
+        });
+        
+        const title = 'Quote Available';
+        const message = `A quote of ${formattedAmount} is available for your shipment from ${shipmentDetail.origin_name} to ${shipmentDetail.destination_name}.`;
+        
+        // Create the notification
+        const notificationId = await createNotification(
+          shipment.shipper_id,
+          shipment.id,
+          title,
+          message,
+          'quote'
+        );
+        
+        console.log(`Quote notification created for shipment ${shipment.id} with ID ${notificationId}`);
+      }
+    }
 
     res.json({ message: 'Quote set successfully' });
   } catch (error) {
@@ -702,7 +890,7 @@ app.put('/shipments/:id/approve', authorize(['admin']), async (req, res) => {
     }
 
     // Check if shipment exists and has the correct status
-    const shipment = await get('SELECT status FROM shipments WHERE id = ?', [req.params.id]);
+    const shipment = await get('SELECT * FROM shipments WHERE id = ?', [req.params.id]);
     
     if (!shipment) {
       return res.status(404).json({ error: 'Shipment not found' });
@@ -713,13 +901,13 @@ app.put('/shipments/:id/approve', authorize(['admin']), async (req, res) => {
     }
 
     // Verify driver exists and is a driver
-    const driver = await get('SELECT id, role FROM users WHERE id = ? AND role = ?', [driver_id, 'driver']);
+    const driver = await get('SELECT id, role, username FROM users WHERE id = ? AND role = ?', [driver_id, 'driver']);
     if (!driver) {
       return res.status(400).json({ error: 'Invalid driver_id. User not found or not a driver' });
     }
 
     // Verify vehicle exists
-    const vehicle = await get('SELECT id FROM vehicles WHERE id = ?', [vehicle_id]);
+    const vehicle = await get('SELECT id, type, license_plate FROM vehicles WHERE id = ?', [vehicle_id]);
     if (!vehicle) {
       return res.status(400).json({ error: 'Invalid vehicle_id. Vehicle not found' });
     }
@@ -727,15 +915,44 @@ app.put('/shipments/:id/approve', authorize(['admin']), async (req, res) => {
     // Update shipment with driver, vehicle and status
     await run(
       'UPDATE shipments SET status = ?, driver_id = ?, vehicle_id = ? WHERE id = ?',
-      ['approved', driver_id, vehicle_id, req.params.id]
+      ['assigned', driver_id, vehicle_id, req.params.id]
     );
 
+    // Create notification for assignment
+    if (shipment.shipper_id) {
+      // Get shipment details for the notification
+      const shipmentDetail = await get(`
+        SELECT s.*, o.name as origin_name, d.name as destination_name 
+        FROM shipments s
+        LEFT JOIN locations o ON s.origin_id = o.id
+        LEFT JOIN locations d ON s.destination_id = d.id
+        WHERE s.id = ?`, 
+        [req.params.id]
+      );
+      
+      if (shipmentDetail) {
+        const title = 'Shipment Assigned';
+        const message = `Your shipment from ${shipmentDetail.origin_name} to ${shipmentDetail.destination_name} has been assigned to driver ${driver.username} with vehicle ${vehicle.type} (${vehicle.license_plate}).`;
+        
+        // Create the notification
+        const notificationId = await createNotification(
+          shipment.shipper_id,
+          shipment.id,
+          title,
+          message,
+          'assignment'
+        );
+        
+        console.log(`Assignment notification created for shipment ${shipment.id} with ID ${notificationId}`);
+      }
+    }
+
     res.json({ 
-      message: 'Shipment approved successfully',
+      message: 'Shipment approved and assigned successfully',
       shipment_id: parseInt(req.params.id),
       driver_id: driver_id,
       vehicle_id: vehicle_id,
-      status: 'approved'
+      status: 'assigned'
     });
   } catch (error) {
     console.error('Approve shipment error:', error);
@@ -1082,10 +1299,16 @@ app.put('/jobs/:id/status', authorize(['driver']), async (req, res) => {
       });
     }
 
+    // Store previous status for reference
+    const previousStatus = shipment.status;
+
+    // Update the status in database
     await run(
       'UPDATE shipments SET status = ? WHERE id = ? AND driver_id = ?',
       [status, req.params.id, req.auth.id]
     );
+
+    console.log(`✅ Successfully updated job #${req.params.id} status from '${previousStatus}' to '${status}'`);
 
     // If status is "picked_up", generate an invoice
     if (status === 'picked_up') {
@@ -1112,12 +1335,6 @@ app.put('/jobs/:id/status', authorize(['driver']), async (req, res) => {
             'UPDATE shipments SET invoiceUrl = ? WHERE id = ?',
             [relativeInvoicePath, req.params.id]
           );
-          
-          return res.json({ 
-            message: 'Status updated, invoice generated',
-            status: status,
-            invoiceUrl: `/shipments/${req.params.id}/invoice`
-          });
         } catch (invoiceError) {
           console.error('Error generating invoice:', invoiceError);
           // Continue with status update even if invoice generation fails
@@ -1125,7 +1342,54 @@ app.put('/jobs/:id/status', authorize(['driver']), async (req, res) => {
       }
     }
 
-    res.json({ message: 'Status updated successfully' });
+    // Fetch the updated shipment to return as response
+    const updatedShipment = await get(
+      `SELECT 
+        id, 
+        shipper_id, 
+        driver_id, 
+        vehicle_id, 
+        shipment_type, 
+        pickup_address, 
+        pickup_city, 
+        pickup_postal_code, 
+        delivery_address, 
+        delivery_city, 
+        delivery_postal_code, 
+        status, 
+        quote_amount, 
+        created_at,
+        province
+      FROM shipments 
+      WHERE id = ?`,
+      [req.params.id]
+    );
+    
+    // Format response as JobDTO
+    const jobResponse = {
+      id: updatedShipment.id,
+      shipperId: updatedShipment.shipper_id,
+      driverId: updatedShipment.driver_id,
+      vehicleId: updatedShipment.vehicle_id,
+      shipmentType: updatedShipment.shipment_type,
+      pickupAddress: updatedShipment.pickup_address,
+      pickupCity: updatedShipment.pickup_city,
+      pickupPostalCode: updatedShipment.pickup_postal_code,
+      deliveryAddress: updatedShipment.delivery_address,
+      deliveryCity: updatedShipment.delivery_city,
+      deliveryPostalCode: updatedShipment.delivery_postal_code,
+      status: updatedShipment.status, // This should now be the new status
+      quoteAmount: updatedShipment.quote_amount,
+      createdAt: updatedShipment.created_at,
+      province: updatedShipment.province,
+      // Add extra fields to make status change more explicit
+      statusChanged: true,
+      previousStatus: previousStatus,
+      message: `Job status updated from '${previousStatus}' to '${status}'`
+    };
+    
+    // Return the updated job with the status change explicitly highlighted
+    res.json(jobResponse);
   } catch (error) {
     console.error('Update status error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -1588,6 +1852,103 @@ app.get('/shipments/:id/invoice', async (req, res) => {
   } catch (err) {
     console.error('Error generating invoice:', err);
     res.status(500).json({ error: 'Failed to generate invoice' });
+  }
+});
+
+// Notification endpoints
+// Get notifications for authenticated shipper
+app.get('/api/notifications', jwt(), async (req, res) => {
+  try {
+    // Only allow shippers to access their notifications
+    if (req.auth.role !== 'shipper') {
+      return res.status(403).json({ error: 'Access denied. Only shippers can access notifications.' });
+    }
+    
+    const unreadOnly = req.query.unread === 'true';
+    const limit = parseInt(req.query.limit) || 50;
+    
+    const notifications = await getNotifications(req.auth.id, unreadOnly, limit);
+    
+    // Count unread notifications
+    const unreadCount = await get(
+      'SELECT COUNT(*) as count FROM notifications WHERE shipper_id = ? AND is_read = 0',
+      [req.auth.id]
+    );
+    
+    res.json({
+      notifications,
+      unread_count: unreadCount ? unreadCount.count : 0
+    });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mark notifications as read
+app.put('/api/notifications/read', jwt(), async (req, res) => {
+  try {
+    // Only allow shippers to access their notifications
+    if (req.auth.role !== 'shipper') {
+      return res.status(403).json({ error: 'Access denied. Only shippers can access notifications.' });
+    }
+    
+    const { notification_ids } = req.body;
+    
+    if (!notification_ids || !Array.isArray(notification_ids) || notification_ids.length === 0) {
+      return res.status(400).json({ error: 'Invalid notification IDs' });
+    }
+    
+    const success = await markNotificationsAsRead(req.auth.id, notification_ids);
+    
+    if (success) {
+      res.json({ message: 'Notifications marked as read' });
+    } else {
+      res.status(500).json({ error: 'Failed to mark notifications as read' });
+    }
+  } catch (error) {
+    console.error('Mark notifications read error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mark all notifications as read
+app.put('/api/notifications/read-all', jwt(), async (req, res) => {
+  try {
+    // Only allow shippers to access their notifications
+    if (req.auth.role !== 'shipper') {
+      return res.status(403).json({ error: 'Access denied. Only shippers can access notifications.' });
+    }
+    
+    await run(
+      'UPDATE notifications SET is_read = 1 WHERE shipper_id = ?',
+      [req.auth.id]
+    );
+    
+    res.json({ message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get unread notification count only
+app.get('/api/notifications/count', jwt(), async (req, res) => {
+  try {
+    // Only allow shippers to access their notifications
+    if (req.auth.role !== 'shipper') {
+      return res.status(403).json({ error: 'Access denied. Only shippers can access notifications.' });
+    }
+    
+    const unreadCount = await get(
+      'SELECT COUNT(*) as count FROM notifications WHERE shipper_id = ? AND is_read = 0',
+      [req.auth.id]
+    );
+    
+    res.json({ unread_count: unreadCount ? unreadCount.count : 0 });
+  } catch (error) {
+    console.error('Get notification count error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

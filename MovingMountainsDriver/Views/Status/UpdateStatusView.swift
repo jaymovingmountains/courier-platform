@@ -32,22 +32,32 @@ final class UpdateStatusViewModel: ObservableObject {
     }
     
     var statusOptions: [StatusOption] {
-        let options: [StatusOption] = [
+        // Define all possible status options with server-compatible values
+        let allOptions: [StatusOption] = [
+            StatusOption(id: "assigned", label: "Assigned", description: "Job has been assigned to driver"),
             StatusOption(id: "picked_up", label: "Picked Up", description: "Package has been picked up from sender"),
             StatusOption(id: "in_transit", label: "In Transit", description: "Package is in transit to destination"),
-            StatusOption(id: "delivered", label: "Delivered", description: "Package has been delivered to recipient")
+            StatusOption(id: "delivered", label: "Delivered", description: "Package has been delivered to recipient"),
+            StatusOption(id: "completed", label: "Completed", description: "Job has been completed"),
+            StatusOption(id: "cancelled", label: "Cancelled", description: "Job has been cancelled")
         ]
         
         // Filter options based on current job status
         guard let job = job else { return [] }
         
         switch job.status.rawValue {
+        case "pending", "approved", "quoted":
+            return allOptions.filter { $0.id == "assigned" }
         case "assigned":
-            return options.filter { $0.id == "picked_up" }
+            return allOptions.filter { $0.id == "picked_up" }
         case "picked_up":
-            return options.filter { $0.id == "in_transit" }
+            return allOptions.filter { $0.id == "in_transit" }
         case "in_transit":
-            return options.filter { $0.id == "delivered" }
+            return allOptions.filter { $0.id == "delivered" }
+        case "delivered":
+            return allOptions.filter { $0.id == "completed" }
+        case "completed", "cancelled":
+            return [] // No further transitions from terminal states
         default:
             return []
         }

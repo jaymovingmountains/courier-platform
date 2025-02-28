@@ -67,6 +67,20 @@ function initializeDatabase() {
       FOREIGN KEY (driver_id) REFERENCES users(id)
     )`);
 
+    // Notifications table for tracking shipment status updates
+    db.run(`CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shipper_id INTEGER NOT NULL,
+      shipment_id INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      is_read INTEGER DEFAULT 0,
+      FOREIGN KEY (shipper_id) REFERENCES users(id),
+      FOREIGN KEY (shipment_id) REFERENCES shipments(id)
+    )`);
+
     // Clients table
     db.run(`CREATE TABLE IF NOT EXISTS clients (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

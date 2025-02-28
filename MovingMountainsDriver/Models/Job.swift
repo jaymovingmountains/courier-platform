@@ -221,10 +221,32 @@ struct JobDTO: Identifiable, Codable {
 // Job status constants
 struct JobStatusConstants {
     static let pending = "pending"
-    static let accepted = "accepted" 
-    static let inProgress = "in_progress"
+    static let approved = "approved"
+    static let quoted = "quoted"
+    static let assigned = "assigned"
+    static let pickedUp = "picked_up"
+    static let inTransit = "in_transit"
+    static let delivered = "delivered"
     static let completed = "completed"
     static let cancelled = "cancelled"
+    
+    // Define valid transitions to help with UI logic
+    static func nextStatus(for currentStatus: String) -> String? {
+        switch currentStatus {
+        case pending, approved, quoted:
+            return assigned
+        case assigned:
+            return pickedUp
+        case pickedUp:
+            return inTransit
+        case inTransit:
+            return delivered
+        case delivered:
+            return completed
+        default:
+            return nil // No valid transition
+        }
+    }
 }
 
 extension JobDTO {
@@ -246,7 +268,40 @@ extension JobDTO {
         return status == .pending || status == .approved || status == .quoted
     }
     
+    var canBePickedUp: Bool {
+        return status == .assigned
+    }
+    
+    var canBeMarkedInTransit: Bool {
+        return status == .pickedUp
+    }
+    
+    var canBeMarkedDelivered: Bool {
+        return status == .inTransit
+    }
+    
+    var canBeMarkedCompleted: Bool {
+        return status == .delivered
+    }
+    
     var statusDisplayName: String {
         return status.displayName
+    }
+    
+    var nextStatus: JobStatus? {
+        switch status {
+        case .pending, .approved, .quoted:
+            return .assigned
+        case .assigned:
+            return .pickedUp
+        case .pickedUp:
+            return .inTransit
+        case .inTransit:
+            return .delivered
+        case .delivered:
+            return .completed
+        default:
+            return nil // No transition from completed or cancelled
+        }
     }
 }

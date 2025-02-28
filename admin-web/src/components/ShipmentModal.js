@@ -1,7 +1,7 @@
 import React from 'react';
 import './ShipmentModal.css';
 
-const ShipmentModal = ({ shipment, onClose, onPrintLabel }) => {
+const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles = [] }) => {
   if (!shipment) return null;
 
   // Format date
@@ -149,8 +149,30 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel }) => {
                 <span className="detail-value">{shipment.shipper_id || 'N/A'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Driver ID:</span>
-                <span className="detail-value">{shipment.driver_id || 'Not Assigned'}</span>
+                <span className="detail-label">Driver:</span>
+                <span className="detail-value">
+                  {shipment.driver_id 
+                    ? (() => {
+                        const driver = users.find(user => user.id === shipment.driver_id);
+                        return driver 
+                          ? `${driver.username} (ID: ${driver.id})` 
+                          : `ID: ${shipment.driver_id}`;
+                      })() 
+                    : 'Not Assigned'}
+                </span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-label">Vehicle:</span>
+                <span className="detail-value">
+                  {shipment.vehicle_id 
+                    ? (() => {
+                        const vehicle = vehicles.find(v => v.id === shipment.vehicle_id);
+                        return vehicle 
+                          ? `${vehicle.vehicle_name} (${vehicle.license_plate})` 
+                          : `ID: ${shipment.vehicle_id}`;
+                      })() 
+                    : 'Not Assigned'}
+                </span>
               </div>
             </div>
           </div>

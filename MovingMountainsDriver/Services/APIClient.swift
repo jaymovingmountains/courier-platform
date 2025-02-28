@@ -9,6 +9,7 @@ enum APIError: Error {
     case networkError(Error)
     case unauthorized
     case unknown
+    case transitionError(String)
     
     var message: String {
         switch self {
@@ -19,6 +20,7 @@ enum APIError: Error {
         case .networkError(let error): return "Network error: \(error.localizedDescription)"
         case .unauthorized: return "Unauthorized access"
         case .unknown: return "Unknown error occurred"
+        case .transitionError(let message): return "Transition error: \(message)"
         }
     }
 }
@@ -257,25 +259,204 @@ class APIClient {
         return try await fetch(endpoint: APIConstants.jobsEndpoint)
     }
     
-    /// Fetch details for a specific job
-    func getJobDetails(jobId: String) async throws -> JobDTO {
-        return try await fetch(endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)")
+    /// Fetch details for a specific job with Result type
+    func getJobDetails(jobId: String) async -> Result<JobDTO, APIError> {
+        print("📡 API REQUEST: Fetching job details for ID: \(jobId)")
+        
+        do {
+            // First try with the direct job endpoint
+            let url = "\(APIConstants.jobsEndpoint)/\(jobId)"
+            print("📡 Trying endpoint: \(url)")
+            
+            do {
+                let job: JobDTO = try await fetch(endpoint: url)
+                print("✅ Successfully fetched job with ID: \(jobId)")
+                return .success(job)
+            } catch let error as APIError {
+                print("⚠️ Failed to fetch job with ID \(jobId) using direct endpoint: \(error.message)")
+                
+                // If we get a 404, let's add more detailed debugging
+                if case .serverError(let code) = error, code == 404 {
+                    print("🔍 DEBUG: Server returned 404 Not Found for job ID: \(jobId)")
+                    print("🔍 Now attempting to fetch all jobs to see if job ID \(jobId) exists...")
+                    
+                    // Try to get all jobs and search for this ID
+                    let allJobs: [JobDTO] = try await fetch(endpoint: APIConstants.jobsEndpoint)
+                    print("📊 Successfully fetched \(allJobs.count) jobs from server")
+                    
+                    // See if any job matches our ID
+                    let matchingJobs = allJobs.filter { job in
+                        let idMatch = job.id == Int(jobId)
+                        let jobIdMatch = job.jobId != nil && job.jobId == Int(jobId)
+                        
+                        if idMatch {
+                            print("🔍 Found job with job.id matching \(jobId)")
+                        }
+                        if jobIdMatch {
+                            print("🔍 Found job with job.jobId matching \(jobId)")
+                        }
+                        
+                        return idMatch || jobIdMatch
+                    }
+                    
+                    if !matchingJobs.isEmpty {
+                        print("✅ Found \(matchingJobs.count) jobs matching ID \(jobId) in the complete jobs list")
+                        if let firstMatch = matchingJobs.first {
+                            print("✅ Using first matching job: #\(firstMatch.id) (status: \(firstMatch.status.rawValue))")
+                            return .success(firstMatch)
+                        }
+                    } else {
+                        print("❌ No jobs found with ID \(jobId) in the complete jobs list of \(allJobs.count) jobs")
+                        print("📊 Available job IDs: \(allJobs.map { $0.id }.sorted())")
+                    }
+                }
+                
+                // Fallback to debugFetchJobs() as a last resort
+                print("🔍 Attempting fallback method with debugFetchJobs()...")
+                let result = await debugFetchJobs()
+                
+                switch result {
+                case .success(let jobs):
+                    if let job = jobs.first(where: { $0.id == Int(jobId) }) {
+                        print("✅ Found job with ID \(jobId) using debugFetchJobs")
+                        return .success(job)
+                    } else if let job = jobs.first(where: { $0.jobId == Int(jobId) }) {
+                        print("✅ Found job with jobId \(jobId) using debugFetchJobs")
+                        return .success(job)
+                    } else {
+                        print("❌ Job ID \(jobId) not found in \(jobs.count) jobs returned by debugFetchJobs")
+                        print("📊 Available job IDs from debugFetchJobs: \(jobs.map { $0.id }.sorted())")
+                        return .failure(.serverError(404))
+                    }
+                case .failure(let error):
+                    print("❌ Debug fetch also failed: \(error.message)")
+                    return .failure(error)
+                }
+            }
+        } catch {
+            print("❌ Unexpected error fetching job details: \(error)")
+            return .failure(.networkError(error))
+        }
     }
     
-    /// Update the status of a job
-    func updateJobStatus(jobId: String, status: String) async throws -> JobDTO {
-        struct StatusUpdateRequest: Codable {
-            let status: String
+    /// Specialized method to update job status with enhanced error handling
+    func updateJobStatus(jobId: Int, status: String) async -> Result<JobDTO, APIError> {
+        print("📡 API REQUEST: Update Job Status")
+        
+        let urlString = "\(APIConstants.baseURL)/jobs/\(jobId)/status"
+        
+        guard let url = URL(string: urlString) else {
+            print("📡 ERROR: Invalid URL: \(urlString)")
+            return .failure(.invalidURL)
         }
         
-        let updateRequest = StatusUpdateRequest(status: status)
-        let body = try JSONEncoder().encode(updateRequest)
+        print("📡 URL: \(url.absoluteString)")
         
-        return try await fetch(
-            endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)/status",
-            method: "PUT",
-            body: body
-        )
+        // Token retrieval
+        guard let token = authService.retrieveToken() else {
+            print("📡 ERROR: No auth token available")
+            return .failure(.unauthorized)
+        }
+        
+        // Use a single payload format that matches server expectations
+        let payload = ["status": status]
+        print("📡 Using payload: \(payload)")
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else {
+            print("📡 ERROR: Failed to serialize status update body")
+            return .failure(.unknown)
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.httpBody = jsonData
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        
+        // Log the request
+        logRequest(request, endpoint: "/jobs/\(jobId)/status")
+        
+        do {
+            let (data, response) = try await session.data(for: request)
+            
+            // Log the response
+            logResponse(response as? HTTPURLResponse, data: data, error: nil)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                print("📡 ERROR: Invalid response type")
+                return .failure(.unknown)
+            }
+            
+            if (200...299).contains(httpResponse.statusCode) {
+                do {
+                    let job = try JSONDecoder().decode(JobDTO.self, from: data)
+                    print("✅ SUCCESS: Job status updated successfully to \(status)")
+                    return .success(job)
+                } catch {
+                    print("📡 DECODING ERROR: \(error)")
+                    
+                    // Print the raw response for debugging
+                    if let responseString = String(data: data, encoding: .utf8) {
+                        print("📡 Raw response data: \(responseString)")
+                        
+                        // Try to parse as generic JSON
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            print("📡 Response fields: \(json.keys.joined(separator: ", "))")
+                            
+                            // Try to extract job fields for debug
+                            if let id = json["id"] as? Int {
+                                print("📡 Job ID in response: \(id)")
+                            }
+                            if let status = json["status"] as? String {
+                                print("📡 Job status in response: \(status)")
+                            }
+                        }
+                    }
+                    
+                    return .failure(.decodingError)
+                }
+            } else if httpResponse.statusCode == 400 {
+                // Special handling for 400 error - likely a status transition issue
+                if let errorJson = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let errorMessage = errorJson["error"] as? String {
+                    
+                    // Check if it's a transition error
+                    if errorMessage.contains("transition") {
+                        print("📡 STATUS TRANSITION ERROR: \(errorMessage)")
+                        // Create custom error type for transition issues
+                        return .failure(.transitionError(errorMessage))
+                    } else {
+                        print("📡 BAD REQUEST ERROR: \(errorMessage)")
+                    }
+                }
+                
+                return .failure(.serverError(httpResponse.statusCode))
+            } else if httpResponse.statusCode == 401 {
+                // Handle unauthorized error
+                print("📡 ERROR: 401 Unauthorized in status update - logging out")
+                
+                // Update UI on main thread
+                Task { @MainActor in
+                    authService.logout()
+                }
+                
+                return .failure(.unauthorized)
+            } else {
+                // Extract error message if possible
+                var errorMessage = "Unknown server error"
+                if let responseString = String(data: data, encoding: .utf8) {
+                    print("📡 SERVER ERROR: Status \(httpResponse.statusCode), message: \(responseString)")
+                    errorMessage = responseString
+                }
+                
+                print("📡 ERROR: Server returned \(httpResponse.statusCode): \(errorMessage)")
+                return .failure(.serverError(httpResponse.statusCode))
+            }
+        } catch {
+            print("📡 NETWORK ERROR: \(error)")
+            return .failure(.networkError(error))
+        }
     }
     
     /// Accept a job assignment
@@ -482,6 +663,47 @@ class APIClient {
     /// Debug method to accept a job
     func debugAcceptJob(jobId: Int) async -> Result<JobDTO, APIError> {
         // Use status update endpoint instead of accept endpoint
+        print("ℹ️ DEBUG: Using status update endpoint for job acceptance")
+        
+        // First, get the current job to determine its status
+        let jobResult = await getJobDetails(jobId: "\(jobId)")
+        
+        // Get the next status based on current status
+        var nextStatus = "assigned" // Default
+        
+        switch jobResult {
+        case .success(let job):
+            let currentStatus = job.status.rawValue
+            print("ℹ️ DEBUG: Current job status is \(currentStatus)")
+            
+            // Determine next status based on current status
+            switch currentStatus {
+            case "pending", "approved", "quoted":
+                nextStatus = "assigned" // Move to assigned first
+            case "assigned":
+                nextStatus = "picked_up" // Move to picked up if already assigned
+            case "picked_up":
+                nextStatus = "in_transit" // Move to in_transit if already picked up
+            case "in_transit":
+                nextStatus = "delivered" // Move to delivered if already in transit
+            case "delivered":
+                nextStatus = "completed" // Move to completed if already delivered
+            default:
+                // Check if the job is already assigned to this driver
+                if let driverId = job.driverId, driverId > 0 {
+                    print("ℹ️ DEBUG: Job appears to be already assigned with driver ID: \(driverId)")
+                    // Return job as is, since it's already assigned
+                    return .success(job)
+                }
+                nextStatus = "assigned" // Default fallback
+            }
+            print("ℹ️ DEBUG: Setting status to \(nextStatus)")
+            
+        case .failure(let error):
+            print("❌ DEBUG: Failed to fetch job for status determination: \(error)")
+            return .failure(error)
+        }
+        
         let urlString = "\(APIConstants.baseURL)/jobs/\(jobId)/status"
         
         guard let url = URL(string: urlString) else {
@@ -499,7 +721,8 @@ class APIClient {
         }
         
         // Create status update body
-        let updateBody = ["status": "assigned"]
+        let updateBody = ["status": nextStatus]
+        print("📡 DEBUG: Request body: \(updateBody)")
         guard let jsonData = try? JSONSerialization.data(withJSONObject: updateBody) else {
             print("📡 ERROR: Failed to serialize status update body")
             return .failure(.unknown)
@@ -510,6 +733,8 @@ class APIClient {
         request.httpBody = jsonData
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        // Add a cache control header to prevent duplicate requests
+        request.addValue("no-cache", forHTTPHeaderField: "Cache-Control")
         
         // Log the request
         logRequest(request, endpoint: "/jobs/\(jobId)/status")
@@ -534,6 +759,11 @@ class APIClient {
                     // Try to help with debugging by printing the raw response
                     if let responseString = String(data: data, encoding: .utf8) {
                         print("📡 Raw response data: \(responseString)")
+                        
+                        // Try to parse as a generic JSON to get more info
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            print("📡 Response fields: \(json.keys.joined(separator: ", "))")
+                        }
                     }
                     
                     return .failure(.decodingError)

@@ -10,9 +10,11 @@ enum JobDetailsError: Error, Identifiable {
     case server(code: Int, description: String)
     case jobNotFound(jobId: Int)
     case authentication(description: String)
+    case authorization(description: String)
     case parsing(description: String)
     case offline
     case timeout
+    case jobNotOwnedByCurrentUser(jobId: Int)
     case unknown(Error?)
     
     var id: String {
@@ -21,9 +23,11 @@ enum JobDetailsError: Error, Identifiable {
         case .server(let code, _): return "server_\(code)"
         case .jobNotFound(let jobId): return "jobNotFound_\(jobId)"
         case .authentication: return "authentication"
+        case .authorization: return "authorization"
         case .parsing: return "parsing"
         case .offline: return "offline"
         case .timeout: return "timeout"
+        case .jobNotOwnedByCurrentUser(let jobId): return "jobNotOwned_\(jobId)"
         case .unknown: return "unknown"
         }
     }
@@ -45,6 +49,9 @@ enum JobDetailsError: Error, Identifiable {
         case .authentication(let description):
             return "Authentication error: \(description). Please log in again."
             
+        case .authorization(let description):
+            return "Authorization error: \(description)"
+            
         case .parsing(let description):
             return "Data error: \(description). Please contact support if this persists."
             
@@ -53,6 +60,9 @@ enum JobDetailsError: Error, Identifiable {
             
         case .timeout:
             return "Request timed out. Please try again later."
+            
+        case .jobNotOwnedByCurrentUser(let jobId):
+            return "Job #\(jobId) belongs to another driver. You do not have permission to view or update this job."
             
         case .unknown(let error):
             if let error = error {
@@ -109,6 +119,9 @@ enum JobDetailsError: Error, Identifiable {
             
         case .unknown:
             return .unknown(nil)
+            
+        case .transitionError(let message):
+            return .server(code: 400, description: "Invalid status transition: \(message)")
         }
     }
     
@@ -120,6 +133,10 @@ enum JobDetailsError: Error, Identifiable {
         case .offline, .timeout, .server:
             return true
         case .jobNotFound, .authentication, .parsing, .unknown:
+            return false
+        case .authorization:
+            return false
+        case .jobNotOwnedByCurrentUser:
             return false
         }
     }
@@ -140,14 +157,16 @@ final class JobDetailsViewModel: ObservableObject {
     private let maxRetryCount = 3
     
     private let apiClient: APIClient
+    private var authService: AuthService
     public let jobId: Int
     
     // Network monitor
     private let networkMonitor = NetworkMonitor.shared
     private var connectivityCancellable: AnyCancellable?
     
-    init(apiClient: APIClient, jobId: Int) {
+    init(apiClient: APIClient, authService: AuthService, jobId: Int) {
         self.apiClient = apiClient
+        self.authService = authService
         self.jobId = jobId
         
         // Listen for connectivity restoration
@@ -164,6 +183,26 @@ final class JobDetailsViewModel: ObservableObject {
         }
     }
     
+    // Helper method to get current user ID
+    private func getCurrentUserId() -> Int? {
+        return authService.currentUser?.id
+    }
+    
+    // Helper method to check if job belongs to current user
+    private func jobBelongsToCurrentUser(_ job: JobDTO) -> Bool {
+        guard let currentUserId = getCurrentUserId() else {
+            return false
+        }
+        
+        if job.driverId == currentUserId {
+            return true
+        } else {
+            // Create more specific error
+            self.error = .jobNotOwnedByCurrentUser(jobId: job.id)
+            return false
+        }
+    }
+    
     func fetchJobDetails() {
         isLoading = true
         error = nil
@@ -172,20 +211,102 @@ final class JobDetailsViewModel: ObservableObject {
         print("🔍 JOB DETAILS: Fetching details for job ID: \(jobId)")
         
         Task {
-            do {
-                // Use the network-aware fetch method
-                let job: JobDTO = try await apiClient.fetchWithOfflineSupport(
-                    endpoint: "\(APIConstants.jobsEndpoint)/\(jobId)",
-                    requestType: "job_details"
-                )
+            // First try to fetch using getJobDetails which returns a Result<JobDTO, APIError>
+            print("🔍 JOB DETAILS: Using enhanced getJobDetails method with ID \(jobId)")
+            let result = await apiClient.getJobDetails(jobId: "\(jobId)")
+            
+            switch result {
+            case .success(let fetchedJob):
+                // Check if this job belongs to the current user
+                if self.jobBelongsToCurrentUser(fetchedJob) {
+                    self.job = fetchedJob
+                    self.calculateRoute()
+                    self.isLoading = false
+                    print("✅ JOB DETAILS: Successfully fetched details for job ID: \(jobId)")
+                } else {
+                    print("❌ JOB DETAILS: Job #\(jobId) does not belong to the current user")
+                    self.showError = true
+                    self.isLoading = false
+                }
+                return
                 
-                self.job = job
-                self.calculateRoute()
-                self.isLoading = false
-                print("✅ JOB DETAILS: Successfully fetched details for job ID: \(jobId)")
+            case .failure(let error):
+                print("❌ JOB DETAILS: Enhanced method failed with error: \(error.message)")
+                if case .serverError(let code) = error, code == 404 {
+                    print("❌ JOB DETAILS: Job #\(jobId) could not be found")
+                    self.error = .jobNotFound(jobId: self.jobId)
+                    self.showError = true
+                    self.isLoading = false
+                } else {
+                    // Try legacy method for compatibility
+                    print("🔍 JOB DETAILS: Attempting with legacy method as last resort")
+                    tryLegacyFetchMethod()
+                }
+            }
+        }
+    }
+    
+    private func tryLegacyFetchMethod() {
+        Task {
+            do {
+                // Try with int ID
+                let intJobId = jobId
+                print("🔍 JOB DETAILS: Trying with integer job ID: \(intJobId)")
+                
+                do {
+                    let jobResult: JobDTO = try await apiClient.fetch(
+                        endpoint: "\(APIConstants.jobsEndpoint)/\(intJobId)"
+                    )
+                    
+                    // Check if this job belongs to the current user
+                    if self.jobBelongsToCurrentUser(jobResult) {
+                        self.job = jobResult
+                        self.calculateRoute()
+                        self.isLoading = false
+                        print("✅ JOB DETAILS: Successfully fetched with integer ID")
+                    } else {
+                        print("❌ JOB DETAILS: Job #\(jobId) does not belong to the current user")
+                        // Error is set by jobBelongsToCurrentUser method
+                        self.showError = true
+                        self.isLoading = false
+                    }
+                    return
+                    
+                } catch let error as APIError {
+                    print("⚠️ JOB DETAILS: Integer ID fetch failed: \(error.message)")
+                    
+                    // Try with string ID
+                    print("🔍 JOB DETAILS: Trying with string job ID: \"\(intJobId)\"")
+                    do {
+                        let jobResult: JobDTO = try await apiClient.fetch(
+                            endpoint: "\(APIConstants.jobsEndpoint)/\"\(intJobId)\""
+                        )
+                        
+                        // Check if this job belongs to the current user
+                        if self.jobBelongsToCurrentUser(jobResult) {
+                            self.job = jobResult
+                            self.calculateRoute()
+                            self.isLoading = false
+                            print("✅ JOB DETAILS: Successfully fetched with string ID")
+                        } else {
+                            print("❌ JOB DETAILS: Job #\(jobId) does not belong to the current user")
+                            // Error is set by jobBelongsToCurrentUser method
+                            self.showError = true
+                            self.isLoading = false
+                        }
+                        return
+                        
+                    } catch let stringError as APIError {
+                        print("⚠️ JOB DETAILS: String ID fetch also failed: \(stringError.message)")
+                        throw stringError
+                    }
+                }
+                
             } catch let error as APIError {
+                print("🚨 JOB DETAILS ERROR: All fetch attempts failed. Final error: \(error.message)")
                 handleError(error)
             } catch {
+                print("🚨 JOB DETAILS UNEXPECTED ERROR: \(error.localizedDescription)")
                 handleError(error)
             }
         }
@@ -292,7 +413,7 @@ final class JobDetailsViewModel: ObservableObject {
         case "pending":
             return ["approved", "assigned", "cancelled"].contains(newStatus)
         case "approved":
-            return ["quoted", "assigned", "cancelled"].contains(newStatus)
+            return ["assigned", "cancelled"].contains(newStatus) // ONLY allow assigned or cancelled from approved
         case "quoted":
             return ["assigned", "cancelled"].contains(newStatus)
         case "assigned":
@@ -397,19 +518,26 @@ final class JobDetailsViewModel: ObservableObject {
     func resetRetryCounter() {
         retryCount = 0
     }
+    
+    func updateAuthService(_ authService: AuthService) {
+        self.authService = authService
+    }
 }
 
 struct JobDetailsView: View {
     @StateObject private var viewModel: JobDetailsViewModel
+    @EnvironmentObject private var authService: AuthService
     @State private var mapRegion = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
         span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
     )
+    @State private var showHistoryRedirectAlert = false
     
     var onDismiss: (() -> Void)?
     
     init(apiClient: APIClient, jobId: Int, onDismiss: (() -> Void)? = nil) {
-        _viewModel = StateObject(wrappedValue: JobDetailsViewModel(apiClient: apiClient, jobId: jobId))
+        // Use a temporary AuthService here
+        _viewModel = StateObject(wrappedValue: JobDetailsViewModel(apiClient: apiClient, authService: AuthService(), jobId: jobId))
         self.onDismiss = onDismiss
     }
     
@@ -417,9 +545,17 @@ struct JobDetailsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if let job = viewModel.job {
+                    // Check if the job is delivered and show a message
+                    if job.status == .delivered {
+                        DeliveredJobBanner()
+                    }
+                    
                     // Job found - normal view
                     // Status section
                     StatusBadgeView(status: job.status.rawValue)
+                    
+                    // Status flow view
+                    JobStatusFlowView(currentStatus: job.status.rawValue)
                     
                     // Map View
                     JobDetailsMapView(directions: viewModel.directions)
@@ -485,8 +621,30 @@ struct JobDetailsView: View {
                 dismissButton: .default(Text("OK"))
             )
         }
+        .alert(isPresented: $showHistoryRedirectAlert) {
+            Alert(
+                title: Text("Job Delivered"),
+                message: Text("This job has been delivered and moved to the History tab. You can view all delivered jobs in the History section."),
+                dismissButton: .default(Text("OK"))
+            )
+        }
         .onAppear {
+            // Update with the proper AuthService from the environment
+            viewModel.updateAuthService(authService)
             viewModel.fetchJobDetails()
+            
+            // Check job status after loading and show history alert if needed
+            if let job = viewModel.job, job.status == .delivered {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showHistoryRedirectAlert = true
+                }
+            }
+        }
+        .onChange(of: viewModel.job?.status.rawValue) { newStatus in
+            if newStatus == "delivered" {
+                // If the job just became delivered, show the history redirect alert
+                showHistoryRedirectAlert = true
+            }
         }
         .withOfflineIndicator() // Apply our offline indicator
     }
@@ -504,9 +662,37 @@ struct JobDetailsView: View {
             return "Connection Error"
         case .server:
             return "Server Error"
+        case .authorization:
+            return "Authorization Error"
         default:
             return "Error"
         }
+    }
+}
+
+// Add a banner component for delivered jobs
+struct DeliveredJobBanner: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.mint)
+                    .font(.title2)
+                
+                Text("Delivery Complete")
+                    .font(.headline)
+                    .foregroundColor(.mint)
+            }
+            
+            Text("This job has been delivered and moved to your history tab.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Color.mint.opacity(0.1))
+        .cornerRadius(12)
     }
 }
 
@@ -582,6 +768,10 @@ struct JobErrorGuidanceView: View {
             return "wifi.exclamationmark"
         case .authentication:
             return "lock.fill"
+        case .authorization:
+            return "exclamationmark.triangle.fill"
+        case .jobNotOwnedByCurrentUser:
+            return "person.fill.xmark"
         case .server:
             return "server.rack"
         default:
@@ -596,6 +786,10 @@ struct JobErrorGuidanceView: View {
         case .network, .offline, .timeout:
             return .blue
         case .authentication:
+            return .red
+        case .authorization:
+            return .red
+        case .jobNotOwnedByCurrentUser:
             return .red
         case .server:
             return .red
@@ -612,6 +806,10 @@ struct JobErrorGuidanceView: View {
             return "There seems to be a connection issue. Check your internet connection and try again."
         case .authentication:
             return "Your session has expired. Please return to the dashboard and log in again."
+        case .authorization:
+            return "You do not have permission to view this job. Please contact the job owner for access."
+        case .jobNotOwnedByCurrentUser:
+            return "This job is assigned to another driver. You can only view and update jobs assigned to you."
         default:
             return "You can try again or return to the dashboard to view other jobs."
         }
@@ -623,37 +821,75 @@ struct JobErrorGuidanceView: View {
 struct StatusBadgeView: View {
     let status: String
     
+    var body: some View {
+        VStack(spacing: 6) {
+            Text(statusText)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(statusColor.opacity(0.2))
+                .foregroundColor(statusColor)
+                .cornerRadius(8)
+                
+            Text(statusDescription)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+    }
+    
     var statusColor: Color {
         switch status {
-        case "pending": return .yellow
-        case "accepted": return .blue
-        case "in_progress": return .orange
-        case "completed": return .green
-        case "cancelled": return .red
-        default: return .gray
+        case "pending":
+            return .yellow
+        case "approved", "quoted":
+            return .orange
+        case "assigned":
+            return .blue
+        case "picked_up":
+            return .purple  
+        case "in_transit":
+            return .indigo
+        case "delivered":
+            return .mint
+        case "cancelled":
+            return .red
+        default:
+            return .gray
         }
     }
     
     var statusText: String {
-        switch status {
-        case "pending": return "Pending"
-        case "accepted": return "Accepted"
-        case "in_progress": return "In Progress"
-        case "completed": return "Completed"
-        case "cancelled": return "Cancelled"
-        default: return status.capitalized
-        }
+        // Format the status text by replacing underscores with spaces and capitalizing
+        return status
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
     }
     
-    var body: some View {
-        Text(statusText)
-            .font(.subheadline)
-            .fontWeight(.medium)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(statusColor.opacity(0.2))
-            .foregroundColor(statusColor)
-            .cornerRadius(8)
+    // Add a helpful description for each status
+    var statusDescription: String {
+        switch status {
+        case "pending":
+            return "Waiting for approval from shipper"
+        case "approved":
+            return "Approved by shipper - Ready to be assigned to you"
+        case "quoted":
+            return "Quote provided - Ready to be assigned to you"
+        case "assigned":
+            return "Job is assigned to you - Ready for pickup"
+        case "picked_up":
+            return "Shipment picked up - Ready to start transit"
+        case "in_transit":
+            return "Shipment in transit to destination"
+        case "delivered":
+            return "Delivered to recipient - Job complete"
+        case "cancelled":
+            return "Job has been cancelled"
+        default:
+            return "Unknown status"
+        }
     }
 }
 
@@ -697,22 +933,7 @@ struct AddressSection: View {
                     .foregroundColor(.secondary)
             }
             
-            // Quote Amount if available
-            if let quoteAmount = job.quoteAmount {
-                Divider()
-                    .padding(.vertical, 8)
-                
-                HStack {
-                    Text("Quote Amount")
-                        .font(.subheadline)
-                    
-                    Spacer()
-                    
-                    Text("$\(String(format: "%.2f", quoteAmount))")
-                        .font(.subheadline)
-                        .fontWeight(.bold)
-                }
-            }
+            // Removed quote amount display as requested
         }
         .padding()
         .background(Color(.systemBackground))
@@ -766,7 +987,7 @@ struct ActionButtonsView: View {
                 Button(action: {
                     onStatusUpdate("assigned")
                 }) {
-                    ActionButton(title: "Assign Job", iconName: "checkmark.circle", color: .blue)
+                    ActionButton(title: "Accept Job", iconName: "checkmark.circle", color: .blue)
                 }
                 
             case "assigned":
@@ -790,15 +1011,8 @@ struct ActionButtonsView: View {
                     ActionButton(title: "Confirm Delivery", iconName: "checkmark.circle.fill", color: .green)
                 }
                 
-            case "delivered":
-                Button(action: {
-                    onStatusUpdate("completed")
-                }) {
-                    ActionButton(title: "Complete Job", iconName: "flag.checkered", color: .green)
-                }
-                
-            case "completed", "cancelled":
-                Text("This job is \(job.status)")
+            case "delivered", "cancelled":
+                Text("This job is \(job.status.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .frame(maxWidth: .infinity)
@@ -811,8 +1025,9 @@ struct ActionButtonsView: View {
             }
             
             // Navigation button
-            if job.status.rawValue != "completed" && job.status.rawValue != "cancelled" {
-                Link(destination: URL(string: "maps://?daddr=\(job.deliveryAddress.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryCity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""),\(job.deliveryPostalCode.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")")!) {
+            if job.status.rawValue != "delivered" && job.status.rawValue != "cancelled" {
+                let encodedAddress = "\(job.deliveryAddress), \(job.deliveryCity), \(job.deliveryPostalCode)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+                Link(destination: URL(string: "maps://?daddr=\(encodedAddress)")!) {
                     ActionButton(title: "Open in Maps", iconName: "map", color: .blue)
                 }
                 
@@ -955,6 +1170,85 @@ struct LoadingView: View {
     }
 }
 
+// Add this new struct near other helper views
+struct JobStatusFlowView: View {
+    let currentStatus: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Job Status Flow")
+                .font(.headline)
+                .padding(.bottom, 4)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(statusFlow, id: \.self) { status in
+                        HStack(spacing: 2) {
+                            Text(formatStatus(status))
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(statusBackgroundColor(status))
+                                .foregroundColor(statusTextColor(status))
+                                .cornerRadius(12)
+                            
+                            if status != "delivered" && status != "cancelled" {
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 4)
+            }
+            
+            Text("Current status: \(formatStatus(currentStatus))")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
+    }
+    
+    private var statusFlow: [String] {
+        ["pending", "approved", "assigned", "picked_up", "in_transit", "delivered"]
+    }
+    
+    private func formatStatus(_ status: String) -> String {
+        status.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+    
+    private func statusBackgroundColor(_ status: String) -> Color {
+        if status == currentStatus {
+            // Highlight current status
+            switch status {
+            case "pending": return .yellow
+            case "approved", "quoted": return .orange
+            case "assigned": return .blue
+            case "picked_up": return .purple
+            case "in_transit": return .indigo
+            case "delivered": return .mint
+            case "cancelled": return .red
+            default: return .gray
+            }
+        } else {
+            // Past statuses with light background
+            return Color(.systemGray5)
+        }
+    }
+    
+    private func statusTextColor(_ status: String) -> Color {
+        if status == currentStatus {
+            return .white
+        } else {
+            return .primary
+        }
+    }
+}
+
 #Preview {
     NavigationView {
         JobDetailsView(
@@ -962,5 +1256,6 @@ struct LoadingView: View {
             jobId: 123,
             onDismiss: {}
         )
+        .environmentObject(AuthService()) // Add the environment object for the preview
     }
 } 

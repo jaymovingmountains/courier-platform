@@ -8,6 +8,7 @@ import ShipmentModal from '../components/ShipmentModal';
 const Dashboard = () => {
   const [shipments, setShipments] = useState([]);
   const [users, setUsers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedShipment, setSelectedShipment] = useState(null);
@@ -23,14 +24,16 @@ const Dashboard = () => {
           Authorization: `Bearer ${token}`,
         };
 
-        // Fetch both shipments and users data
-        const [shipmentsRes, usersRes] = await Promise.all([
+        // Fetch shipments, users and vehicles data
+        const [shipmentsRes, usersRes, vehiclesRes] = await Promise.all([
           axios.get('http://localhost:3001/shipments', { headers }),
-          axios.get('http://localhost:3001/users', { headers })
+          axios.get('http://localhost:3001/users', { headers }),
+          axios.get('http://localhost:3001/vehicles', { headers })
         ]);
 
         setShipments(shipmentsRes.data);
         setUsers(usersRes.data);
+        setVehicles(vehiclesRes.data);
         setError(null);
       } catch (err) {
         setError('Failed to fetch dashboard data. Please try again.');
@@ -307,6 +310,8 @@ const Dashboard = () => {
           shipment={selectedShipment}
           onClose={closeModal}
           onPrintLabel={handlePrintLabel}
+          users={users}
+          vehicles={vehicles}
         />
       )}
     </div>

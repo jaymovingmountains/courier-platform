@@ -59,7 +59,13 @@ struct APIConstants {
         var params: [String] = []
         
         if let status = status {
-            params.append("status=\(status)")
+            // Special case for "delivered" status - add explicit parameter to ensure server returns all delivered jobs
+            if status == "delivered" {
+                params.append("status=delivered")
+                params.append("include_delivered=true")
+            } else {
+                params.append("status=\(status)")
+            }
         }
         
         if let assigned = assigned {
