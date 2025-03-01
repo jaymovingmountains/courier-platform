@@ -9,7 +9,7 @@ struct LoginView: View {
             VStack(spacing: 20) {
                 // Logo section
                 VStack {
-                    Image("AppLogo") // Add logo to assets
+                    Image("moving-mountains-logo") // Updated logo image name
                         .resizable()
                         .scaledToFit()
                         .frame(width: 100, height: 100)
