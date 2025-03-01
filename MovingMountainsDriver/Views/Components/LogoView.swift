@@ -12,8 +12,8 @@ struct LogoView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Logo image - using PNG asset
-            Image("moving-mountains-logo")
+            // Logo image - using AppLogo asset
+            Image("AppLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(height: height)
@@ -52,7 +52,7 @@ struct LargeLogoView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            Image("moving-mountains-logo")
+            Image("AppLogo")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 200)
