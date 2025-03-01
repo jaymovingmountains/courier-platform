@@ -9,10 +9,27 @@ struct LoginView: View {
             VStack(spacing: 20) {
                 // Logo section
                 VStack {
-                    Image("moving-mountains-logo") // Updated logo image name
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 100, height: 100)
+                    // Try multiple image names with a fallback
+                    Group {
+                        if let _ = UIImage(named: "AppLogo") {
+                            Image("AppLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 100, height: 100)
+                        } else if let _ = UIImage(named: "moving-mountains-logo") {
+                            Image("moving-mountains-logo")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 100, height: 100)
+                        } else {
+                            // Fallback to a system image
+                            Image(systemName: "building.2")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 100, height: 100)
+                                .foregroundColor(.blue)
+                        }
+                    }
                     
                     Text("Driver Portal")
                         .font(.title)
