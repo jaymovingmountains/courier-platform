@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Dashboard.css';
+import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
+import ErrorMessage from '../components/ErrorMessage';
 
 const Dashboard = () => {
   const [shipments, setShipments] = useState([]);
@@ -20,17 +22,22 @@ const Dashboard = () => {
   const fetchShipments = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/shipments', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      
+      console.log('Fetching shipments from API...');
+      const response = await axios.get('http://localhost:3001/shipments', getAuthConfig());
+      
+      console.log(`Successfully fetched ${response.data.length} shipments`);
       setShipments(response.data);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch shipments. Please try again later.');
-      console.error('Error fetching shipments:', err);
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err, {
+        endpoint: '/shipments',
+        operation: 'fetching shipments',
+        additionalData: { timestamp: new Date().toISOString() }
+      });
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -151,7 +158,7 @@ const Dashboard = () => {
         <div className="dashboard-actions">
           <button
             className="action-button create-button"
-            onClick={() => navigate('/create-shipment')}
+            onClick={() => navigate('/shipments/new')}
           >
             <span className="button-icon">+</span>
             Create Shipment
@@ -167,10 +174,12 @@ const Dashboard = () => {
       </div>
 
       {error && (
-        <div className="error-message">
-          <span className="error-icon">⚠️</span>
-          {error}
-        </div>
+        <ErrorMessage 
+          message={error}
+          onRetry={fetchShipments}
+          onDismiss={() => setError(null)}
+          variant="error"
+        />
       )}
 
       {/* Stats Cards */}
@@ -269,7 +278,7 @@ const Dashboard = () => {
               <p>Create your first shipment to get started!</p>
               <button
                 className="action-button create-button"
-                onClick={() => navigate('/create-shipment')}
+                onClick={() => navigate('/shipments/new')}
               >
                 Create Shipment
               </button>

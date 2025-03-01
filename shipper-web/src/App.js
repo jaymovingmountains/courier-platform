@@ -140,6 +140,34 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            <Route
+              path="/shipments"
+              element={
+                <ProtectedRoute>
+                  <div className="app-container">
+                    <Navigation />
+                    <div className="content">
+                      <TrackShipments />
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/shipments/new"
+              element={
+                <ProtectedRoute roles={['shipper']}>
+                  <div className="app-container">
+                    <Navigation />
+                    <div className="content">
+                      <CreateShipment />
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="/create-shipment"
@@ -205,6 +233,20 @@ function App() {
                     <Navigation />
                     <div className="content">
                       <ViewShipment />
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <div className="app-container">
+                    <Navigation />
+                    <div className="content">
+                      <ManageUsers />
                     </div>
                   </div>
                 </ProtectedRoute>
@@ -280,6 +322,8 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} />} />
           </Routes>
         </div>
       </Router>

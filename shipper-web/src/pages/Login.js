@@ -4,8 +4,9 @@ import { useNavigate, Navigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
-import { ReactComponent as Logo } from '../logo.svg';
+import logo from '../assets/images/moving-mountains-logo.png'; // Using PNG file
 import './Login.css';
+import { handleFormError } from '../utils/apiErrorHandler';
 
 const loginSchema = Yup.object().shape({
   username: Yup.string()
@@ -29,7 +30,7 @@ const Login = () => {
 
   const handleLogin = async (values, { setSubmitting, setFieldError, setStatus }) => {
     try {
-      console.log('Login attempt with values:', values);
+      console.log('Attempting login with credentials:', { username: values.username });
       setDebugInfo(null);
       
       const response = await axios.post('http://localhost:3001/login', values, {
@@ -39,16 +40,18 @@ const Login = () => {
         }
       });
       
-      console.log('Login response:', response.data);
+      console.log('Login successful, received token:', { 
+        tokenReceived: !!response.data.token,
+        timestamp: new Date().toISOString() 
+      });
+      
       const { token } = response.data;
       
       // Update authentication context and localStorage
       login(token);
       navigate('/dashboard');
     } catch (error) {
-      console.error('Login error details:', error);
-      
-      // Set debug info for display
+      // Set debug info for display (for development purposes)
       setDebugInfo({
         message: error.message,
         status: error.response?.status,
@@ -56,13 +59,12 @@ const Login = () => {
         headers: error.response?.headers
       });
       
-      if (error.response?.status === 401) {
-        setStatus('Invalid username or password');
-      } else if (error.response?.status === 403) {
-        setStatus('Access denied. Only shippers can log in to this portal.');
-      } else {
-        setStatus('An error occurred. Please try again.');
-      }
+      // Use our utility function to handle the error
+      handleFormError(error, setStatus, setFieldError, {
+        endpoint: '/login',
+        operation: 'logging in',
+        additionalData: { username: values.username }
+      });
     } finally {
       setSubmitting(false);
     }
@@ -108,17 +110,16 @@ const Login = () => {
         <div className="login-box">
           <div className="login-header">
             <div className="logo-container">
-              <Logo className="login-logo" />
+              <img src={logo} alt="Moving Mountains Logo" className="login-logo" style={{ maxWidth: '200px', marginBottom: '20px' }} />
             </div>
             <h2>Shipper Portal</h2>
             <p>Sign in to your account</p>
-            <p className="login-hint">Use username: <strong>testshipper</strong> and password: <strong>shipper123</strong></p>
           </div>
           
           <Formik
             initialValues={{
-              username: 'testshipper',
-              password: 'shipper123',
+              username: '',
+              password: '',
             }}
             validationSchema={loginSchema}
             onSubmit={handleLogin}

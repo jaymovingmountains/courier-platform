@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './ViewShipment.css';
 import ShippingLabel from '../components/ShippingLabel';
+import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
+import ErrorMessage from '../components/ErrorMessage';
 
 const ViewShipment = () => {
   const { id } = useParams();
@@ -14,17 +16,24 @@ const ViewShipment = () => {
 
   const fetchShipment = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:3001/shipments/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      setLoading(true);
+      const endpoint = `http://localhost:3001/shipments/${id}`;
+      
+      console.log(`Fetching shipment details for ID: ${id}`);
+      const response = await axios.get(endpoint, getAuthConfig());
+      
+      console.log('Shipment details retrieved:', response.data);
       setShipment(response.data);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch shipment details. Please try again.');
-      console.error('Error fetching shipment:', err);
+      // Use our utility function to handle the error
+      const errorMessage = handleApiError(err, {
+        endpoint: `/shipments/${id}`,
+        operation: `fetching shipment #${id}`,
+        additionalData: { shipmentId: id }
+      });
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -35,9 +44,21 @@ const ViewShipment = () => {
   }, [fetchShipment]);
 
   const handlePrintLabel = () => {
-    const token = localStorage.getItem('token');
-    // Open the label endpoint in a new tab
-    window.open(`http://localhost:3001/shipments/${id}/label?token=${token}`, '_blank');
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = `http://localhost:3001/shipments/${id}/label?token=${token}`;
+      
+      console.log(`Opening print label in new window for shipment #${id}`);
+      window.open(endpoint, '_blank');
+    } catch (err) {
+      const errorMessage = handleApiError(err, {
+        endpoint: `/shipments/${id}/label`,
+        operation: 'opening shipping label',
+        additionalData: { shipmentId: id }
+      });
+      
+      setError(errorMessage);
+    }
   };
 
   const toggleLabelPreview = () => {
@@ -55,7 +76,11 @@ const ViewShipment = () => {
   if (error || !shipment) {
     return (
       <div className="view-shipment-container">
-        <div className="error-message">{error || 'Shipment not found'}</div>
+        <ErrorMessage 
+          message={error || 'Shipment not found'}
+          onRetry={fetchShipment}
+          variant="error" 
+        />
         <button
           className="back-button"
           onClick={() => navigate('/dashboard')}
@@ -71,7 +96,7 @@ const ViewShipment = () => {
       <div className="view-shipment-header">
         <h1>Shipment #{shipment.id}</h1>
         <div className="header-actions">
-          <button className="back-button" onClick={() => navigate('/track-shipments')}>
+          <button className="back-button" onClick={() => navigate('/shipments')}>
             <i className="fas fa-arrow-left"></i> Back to Shipments
           </button>
           <button className="action-button preview-label-button" onClick={toggleLabelPreview}>

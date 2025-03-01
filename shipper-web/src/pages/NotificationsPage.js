@@ -1,78 +1,76 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import NotificationService from '../services/NotificationService';
+import useNotifications from '../hooks/useNotifications';
+import ErrorMessage from '../components/ErrorMessage';
+import { handleApiError } from '../utils/apiErrorHandler';
 
 const NotificationsPage = () => {
-  const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const { 
+    notifications, 
+    unreadCount, 
+    loading, 
+    error, 
+    fetchNotifications, 
+    markAsRead, 
+    markAllAsRead, 
+    pausePolling,
+    resumePolling 
+  } = useNotifications({
+    initialFetch: false, // We'll fetch manually
+    pollingInterval: 60000 // Longer interval for the notifications page
+  });
 
-  // Fetch notifications when component mounts or filter changes
+  // Pause polling when viewing notifications page
   useEffect(() => {
-    fetchNotifications();
-  }, [showUnreadOnly]);
-
-  // Function to fetch notifications
-  const fetchNotifications = async () => {
-    setLoading(true);
-    try {
-      const fetchedNotifications = await NotificationService.getNotifications(showUnreadOnly);
-      setNotifications(fetchedNotifications);
-      
-      // Count unread notifications
-      const unreadNotifications = fetchedNotifications.filter(n => !n.is_read);
-      setUnreadCount(unreadNotifications.length);
-      
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError('Failed to load notifications. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mark a notification as read
-  const markAsRead = async (notificationId) => {
-    try {
-      await NotificationService.markAsRead([notificationId]);
-      
-      // Update local state to mark this notification as read
-      setNotifications(notifications.map(notification => 
-        notification.id === notificationId 
-          ? { ...notification, is_read: true } 
-          : notification
-      ));
-      
-      // Update unread count
-      setUnreadCount(prev => Math.max(0, prev - 1));
-    } catch (err) {
-      console.error('Error marking notification as read:', err);
-      alert('Failed to mark notification as read');
-    }
-  };
-
-  // Mark all notifications as read
-  const markAllAsRead = async () => {
-    if (notifications.length === 0) return;
+    // Pause polling since we're on the notifications page
+    pausePolling();
     
+    // Fetch notifications when component mounts or filter changes
+    fetchNotifications(showUnreadOnly);
+    
+    // Resume polling when unmounting
+    return () => resumePolling();
+  }, [fetchNotifications, pausePolling, resumePolling, showUnreadOnly]);
+
+  // Mark a notification as read and refetch to keep counts in sync
+  const handleMarkAsRead = async (notificationId) => {
     try {
-      const unreadIds = notifications
-        .filter(n => !n.is_read)
-        .map(n => n.id);
-      
-      if (unreadIds.length === 0) return;
-      
-      await NotificationService.markAllAsRead();
-      
-      // Update local state
-      setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      const success = await markAsRead(notificationId);
+      if (success) {
+        console.log(`Successfully marked notification #${notificationId} as read`);
+      } else {
+        console.error(`Failed to mark notification #${notificationId} as read`);
+      }
     } catch (err) {
-      console.error('Error marking all notifications as read:', err);
-      alert('Failed to mark all notifications as read');
+      // Use our error handling utility
+      const errorMessage = handleApiError(err, {
+        endpoint: '/api/notifications/read',
+        operation: 'marking notification as read',
+        additionalData: { notificationId }
+      });
+      
+      console.error(errorMessage);
+    }
+  };
+
+  // Mark all notifications as read and refetch to keep counts in sync
+  const handleMarkAllAsRead = async () => {
+    try {
+      const success = await markAllAsRead();
+      if (success) {
+        console.log('Successfully marked all notifications as read');
+      } else {
+        console.error('Failed to mark all notifications as read');
+      }
+    } catch (err) {
+      // Use our error handling utility
+      const errorMessage = handleApiError(err, {
+        endpoint: '/api/notifications/read-all',
+        operation: 'marking all notifications as read'
+      });
+      
+      console.error(errorMessage);
     }
   };
 
@@ -113,7 +111,7 @@ const NotificationsPage = () => {
         <div>
           <button 
             className="btn btn-outline-primary btn-sm me-2" 
-            onClick={markAllAsRead}
+            onClick={handleMarkAllAsRead}
             disabled={unreadCount === 0}
           >
             Mark all as read
@@ -133,16 +131,20 @@ const NotificationsPage = () => {
         </div>
       </div>
 
+      {error && (
+        <ErrorMessage 
+          message={error}
+          onRetry={() => fetchNotifications(showUnreadOnly)}
+          variant="error"
+        />
+      )}
+
       {loading ? (
         <div className="text-center py-5">
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
           <p className="mt-2">Loading notifications...</p>
-        </div>
-      ) : error ? (
-        <div className="alert alert-danger" role="alert">
-          {error}
         </div>
       ) : notifications.length === 0 ? (
         <div className="text-center py-5">
@@ -215,7 +217,7 @@ const NotificationsPage = () => {
                   {!notification.is_read && (
                     <button 
                       className="btn btn-sm btn-link p-0 mt-2" 
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={() => handleMarkAsRead(notification.id)}
                     >
                       Mark as read
                     </button>
