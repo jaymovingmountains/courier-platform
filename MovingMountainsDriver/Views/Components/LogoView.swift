@@ -12,11 +12,26 @@ struct LogoView: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Logo image - using AppLogo asset
-            Image("AppLogo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: height)
+            // Logo image with system icon fallback
+            Group {
+                // Try UIImage to check if asset exists
+                if UIImage(named: "AppLogo") != nil {
+                    Image("AppLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else if UIImage(named: "moving-mountains-logo") != nil {
+                    Image("moving-mountains-logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    // Fallback to system icon
+                    Image(systemName: "mountain.2.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .foregroundColor(.blue)
+                }
+            }
+            .frame(height: height)
             
             // Optional text label
             if showText {
@@ -52,10 +67,26 @@ struct LargeLogoView: View {
     
     var body: some View {
         VStack(spacing: 16) {
-            Image("AppLogo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 200)
+            // Logo image with system icon fallback
+            Group {
+                // Try UIImage to check if asset exists
+                if UIImage(named: "AppLogo") != nil {
+                    Image("AppLogo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else if UIImage(named: "moving-mountains-logo") != nil {
+                    Image("moving-mountains-logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else {
+                    // Fallback to system icon
+                    Image(systemName: "mountain.2.fill")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .foregroundColor(.blue)
+                }
+            }
+            .frame(width: 200)
             
             if showText {
                 Text("Moving Mountains")

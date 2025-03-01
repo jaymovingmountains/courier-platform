@@ -3,17 +3,80 @@ import SwiftUI
 struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @EnvironmentObject private var authService: AuthService
+    @State private var debugMessage: String = ""
     
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
                 // Logo section
                 VStack {
-                    // Use the AppLogo directly
-                    Image("AppLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 100, height: 100)
+                    // Logo image with system icon fallback
+                    Group {
+                        // Try UIImage to check if asset exists
+                        if UIImage(named: "AppLogo") != nil {
+                            Image("AppLogo")
+                                .resizable()
+                                .scaledToFit()
+                                .onAppear {
+                                    debugMessage = "Using AppLogo image"
+                                    print("✅ Found and using AppLogo")
+                                }
+                        } else if UIImage(named: "moving-mountains-logo") != nil {
+                            Image("moving-mountains-logo")
+                                .resizable()
+                                .scaledToFit()
+                                .onAppear {
+                                    debugMessage = "Using moving-mountains-logo image"
+                                    print("✅ Found and using moving-mountains-logo")
+                                }
+                        } else {
+                            // Fallback to system icon
+                            Image(systemName: "mountain.2.fill")
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundColor(.blue)
+                                .onAppear {
+                                    debugMessage = "Using fallback system icon"
+                                    print("⚠️ No logo assets found, using system icon")
+                                    
+                                    // Print bundle info for debugging
+                                    if let bundlePath = Bundle.main.resourcePath {
+                                        print("📦 Bundle path: \(bundlePath)")
+                                    }
+                                    
+                                    // List all assets in main bundle
+                                    let fileManager = FileManager.default
+                                    if let bundleURL = Bundle.main.resourceURL {
+                                        do {
+                                            let contents = try fileManager.contentsOfDirectory(at: bundleURL, includingPropertiesForKeys: nil)
+                                            print("📂 Bundle contents:")
+                                            for item in contents {
+                                                print("   - \(item.lastPathComponent)")
+                                            }
+                                        } catch {
+                                            print("❌ Error listing bundle contents: \(error)")
+                                        }
+                                    }
+                                    
+                                    // Check assets catalog
+                                    if let catalogPath = Bundle.main.path(forResource: "Assets", ofType: "car") {
+                                        print("📚 Assets catalog found at: \(catalogPath)")
+                                    } else {
+                                        print("❌ No Assets.car found in bundle")
+                                    }
+                                }
+                        }
+                    }
+                    .frame(width: 100, height: 100)
+                    
+                    // Show debug message in development only
+                    #if DEBUG
+                    if !debugMessage.isEmpty {
+                        Text(debugMessage)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    #endif
                     
                     Text("Driver Portal")
                         .font(.title)
