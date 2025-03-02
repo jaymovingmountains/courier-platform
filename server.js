@@ -12,6 +12,22 @@ const path = require('path');
 const fs = require('fs');
 const { generateInvoiceFromDbData, calculateTaxes } = require('./utils/invoiceGenerator');
 
+// Ensure JWT_SECRET is available
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET environment variable not set. Using default secret for development only.');
+  console.warn('This is not secure for production. Please set JWT_SECRET environment variable.');
+}
+
+// Define the JWT_SECRET after the warning
+const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
+console.log('JWT configuration initialized');
+
+// Create JWT middleware with configuration
+const jwtMiddleware = jwt({ 
+  secret: JWT_SECRET, 
+  algorithms: ['HS256'] 
+});
+
 // Helper function to validate Canadian province codes
 const validateProvinceCode = (province) => {
   if (!province || typeof province !== 'string') return false;
@@ -125,7 +141,6 @@ async function markNotificationsAsRead(shipperId, notificationIds) {
 
 const app = express();
 const port = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
 
 // Logging middleware for production
 app.use((req, res, next) => {
@@ -2093,7 +2108,7 @@ app.get('/shipments/:id/invoice', async (req, res) => {
 
 // Notification endpoints
 // Get notifications for authenticated shipper
-app.get('/api/notifications', jwt(), async (req, res) => {
+app.get('/api/notifications', jwtMiddleware, async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2122,7 +2137,7 @@ app.get('/api/notifications', jwt(), async (req, res) => {
 });
 
 // Mark notifications as read
-app.put('/api/notifications/read', jwt(), async (req, res) => {
+app.put('/api/notifications/read', jwtMiddleware, async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2149,7 +2164,7 @@ app.put('/api/notifications/read', jwt(), async (req, res) => {
 });
 
 // Mark all notifications as read
-app.put('/api/notifications/read-all', jwt(), async (req, res) => {
+app.put('/api/notifications/read-all', jwtMiddleware, async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2169,7 +2184,7 @@ app.put('/api/notifications/read-all', jwt(), async (req, res) => {
 });
 
 // Get unread notification count only
-app.get('/api/notifications/count', jwt(), async (req, res) => {
+app.get('/api/notifications/count', jwtMiddleware, async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2189,7 +2204,7 @@ app.get('/api/notifications/count', jwt(), async (req, res) => {
 });
 
 // Profile update endpoint
-app.put('/users/profile', expressJwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
+app.put('/users/profile', jwtMiddleware, async (req, res) => {
   try {
     const userId = req.auth.id;
     const { name, email, phone } = req.body;
@@ -2361,7 +2376,7 @@ app.delete('/users/:id', authorize(['admin']), async (req, res) => {
 });
 
 // Get invoice details with tax breakdown
-app.get('/api/shipments/:id/invoice-details', jwt(), async (req, res) => {
+app.get('/api/shipments/:id/invoice-details', jwtMiddleware, async (req, res) => {
   try {
     // Check shipment access based on role
     let query = `
