@@ -24,6 +24,10 @@ yarn-error.log*
 /build
 /dist
 
+# Generated files
+/invoices/*.pdf
+/invoices/*.png
+
 # IDE and editor files
 .idea/
 .vscode/

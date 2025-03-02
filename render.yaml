@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: courier-platform-backend
+    env: node
+    buildCommand: npm install && npm run prepare-deploy
+    startCommand: node server.js
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        sync: false
+      - key: REACT_APP_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: DB_PATH
+        value: ./data/courier.db
+      - key: REACT_APP_API_URL
+        value: "https://courier-platform-backend.onrender.com"
+      - key: REACT_APP_GEOAPIFY_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        value: "https://moving-mountains-shipper.onrender.com,https://moving-mountains-admin.onrender.com,https://moving-mountains-driver.onrender.com"
+      - key: NODE_ENV
+        value: "production"
+    disk:
+      name: courier-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    disks:
+      - name: invoices-data
+        mountPath: /opt/render/project/src/invoices
+        sizeGB: 1 

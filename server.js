@@ -127,9 +127,52 @@ const app = express();
 const port = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
 
+// Logging middleware for production
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.url} ${res.statusCode} - ${duration}ms`);
+  });
+  next();
+});
+
+// Health check endpoint for monitoring
+app.get('/health', (req, res) => {
+  try {
+    // Simple check to see if database is accessible
+    db.get('SELECT 1', (err) => {
+      if (err) {
+        console.error('Health check failed - Database error:', err);
+        return res.status(500).json({ 
+          status: 'error', 
+          message: 'Database connection failed',
+          time: new Date().toISOString()
+        });
+      }
+      
+      res.json({ 
+        status: 'ok', 
+        message: 'Service is healthy',
+        version: require('./package.json').version,
+        time: new Date().toISOString()
+      });
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Service health check failed',
+      time: new Date().toISOString() 
+    });
+  }
+});
+
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:3004', 'http://localhost:3005'],
+  origin: process.env.CORS_ORIGIN ? 
+    process.env.CORS_ORIGIN.split(',') : 
+    ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003', 'http://localhost:3004', 'http://localhost:3005'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-portal'],
   credentials: true
@@ -267,7 +310,7 @@ app.post('/login', async (req, res) => {
         name: user.name || user.username // Include name in token, fallback to username if name is null
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: process.env.NODE_ENV === 'production' ? '12h' : '24h' }
     );
     console.log('Login successful:', { 
       username: user.username, 
@@ -2317,12 +2360,6 @@ app.delete('/users/:id', authorize(['admin']), async (req, res) => {
   }
 });
 
-// Start server
-app.listen(port, () => {
-  console.log(`🚀 Server is running on port ${port}`);
-  console.log(`📚 API Documentation available at http://localhost:${port}/api-docs`);
-});
-
 // Get invoice details with tax breakdown
 app.get('/api/shipments/:id/invoice-details', jwt(), async (req, res) => {
   try {
@@ -2412,4 +2449,10 @@ app.put('/api/shipments/:id/mark-paid', authorize(['admin']), async (req, res) =
     console.error('Error marking invoice as paid:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// Start server
+app.listen(port, () => {
+  console.log(`🚀 Server is running on port ${port}`);
+  console.log(`📚 API Documentation available at http://localhost:${port}/api-docs`);
 }); 

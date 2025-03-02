@@ -1,0 +1,3 @@
+# This file is intentionally empty.
+# Its purpose is to ensure that the 'invoices' directory is tracked by Git,
+# while the actual invoice files inside it are excluded via .gitignore. 
