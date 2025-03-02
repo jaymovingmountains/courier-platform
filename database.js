@@ -97,6 +97,21 @@ function initializeDatabase() {
       FOREIGN KEY (shipper_id) REFERENCES users(id)
     )`);
 
+    // Saved Addresses table
+    db.run(`CREATE TABLE IF NOT EXISTS saved_addresses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shipper_id INTEGER NOT NULL,
+      address_name TEXT NOT NULL,
+      address TEXT NOT NULL,
+      city TEXT NOT NULL,
+      postal_code TEXT NOT NULL,
+      province TEXT NOT NULL,
+      is_default BOOLEAN DEFAULT 0,
+      is_pickup BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (shipper_id) REFERENCES users(id)
+    )`);
+
     // Alter existing tables if they already exist
     // Check if name column exists in users table
     db.get("PRAGMA table_info(users)", (err, rows) => {
@@ -160,6 +175,42 @@ function initializeDatabase() {
           console.log('Added invoiceUrl column to shipments table');
         });
       }
+      
+      // Check if tax_amount column exists
+      const taxAmountColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'tax_amount');
+      if (!taxAmountColumnExists) {
+        db.run(`ALTER TABLE shipments ADD COLUMN tax_amount REAL`, (err) => {
+          if (err) {
+            console.error('Error adding tax_amount column to shipments table:', err);
+            return;
+          }
+          console.log('Added tax_amount column to shipments table');
+        });
+      }
+      
+      // Check if total_amount column exists
+      const totalAmountColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'total_amount');
+      if (!totalAmountColumnExists) {
+        db.run(`ALTER TABLE shipments ADD COLUMN total_amount REAL`, (err) => {
+          if (err) {
+            console.error('Error adding total_amount column to shipments table:', err);
+            return;
+          }
+          console.log('Added total_amount column to shipments table');
+        });
+      }
+      
+      // Check if payment_status column exists
+      const paymentStatusColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'payment_status');
+      if (!paymentStatusColumnExists) {
+        db.run(`ALTER TABLE shipments ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`, (err) => {
+          if (err) {
+            console.error('Error adding payment_status column to shipments table:', err);
+            return;
+          }
+          console.log('Added payment_status column to shipments table');
+        });
+      }
     });
 
     // Check if province column exists in jobs table
@@ -179,6 +230,16 @@ function initializeDatabase() {
           }
           console.log('Added province column to jobs table');
         });
+      }
+    });
+
+    // Migration: Update users with null names
+    // Set name = username for any user where name is null
+    db.run(`UPDATE users SET name = username WHERE name IS NULL OR name = ''`, (err) => {
+      if (err) {
+        console.error('Error updating users with null names:', err);
+      } else {
+        console.log('Migration: Updated users with null names to use username as name');
       }
     });
 

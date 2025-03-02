@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Help from './pages/Help';
 import Invoices from './pages/Invoices';
 import NotificationsPage from './pages/NotificationsPage';
+import SavedAddresses from './pages/SavedAddresses';
 import './App.css';
 import Navigation from './components/Navigation';
 import { AuthContext } from './context/AuthContext';
@@ -30,8 +31,10 @@ function App() {
       
       localStorage.setItem('token', token);
       setUser({ 
+        id: payload.id,
         role: payload.role,
         username: payload.username || 'User',
+        name: payload.name || payload.username || 'User',
         email: payload.email || ''
       });
       setIsAuthenticated(true);
@@ -63,8 +66,10 @@ function App() {
           
           if (payload && payload.exp * 1000 > Date.now()) {
             setUser({ 
+              id: payload.id,
               role: payload.role,
               username: payload.username || 'User',
+              name: payload.name || payload.username || 'User',
               email: payload.email || ''
             });
             setIsAuthenticated(true);
@@ -317,6 +322,20 @@ function App() {
                     <Navigation />
                     <div className="content">
                       <NotificationsPage />
+                    </div>
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/saved-addresses"
+              element={
+                <ProtectedRoute>
+                  <div className="app-container">
+                    <Navigation />
+                    <div className="content">
+                      <SavedAddresses />
                     </div>
                   </div>
                 </ProtectedRoute>

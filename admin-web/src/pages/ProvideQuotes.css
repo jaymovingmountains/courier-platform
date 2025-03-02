@@ -508,4 +508,29 @@
   .quote-history-table {
     overflow-x: auto;
   }
+}
+
+/* Shipper details styling */
+.shipper-details {
+  background-color: #f0f7ff;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-left: 3px solid #3498db;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #555;
+}
+
+.shipper-details .detail-label {
+  color: #3498db;
+}
+
+.shipper-details .detail-value {
+  font-weight: 500;
 } 

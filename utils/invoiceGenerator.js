@@ -2,6 +2,23 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 
+// Canadian tax rates by province
+const PROVINCE_TAXES = {
+  'AB': { gst: 5, pst: 0, name: 'Alberta' },
+  'BC': { gst: 5, pst: 7, name: 'British Columbia' },
+  'MB': { gst: 5, pst: 7, name: 'Manitoba' },
+  'NB': { hst: 15, name: 'New Brunswick' },
+  'NL': { hst: 15, name: 'Newfoundland and Labrador' },
+  'NS': { hst: 15, name: 'Nova Scotia' },
+  'NT': { gst: 5, name: 'Northwest Territories' },
+  'NU': { gst: 5, name: 'Nunavut' },
+  'ON': { hst: 13, name: 'Ontario' },
+  'PE': { hst: 15, name: 'Prince Edward Island' },
+  'QC': { gst: 5, qst: 9.975, name: 'Quebec' },
+  'SK': { gst: 5, pst: 6, name: 'Saskatchewan' },
+  'YT': { gst: 5, name: 'Yukon' }
+};
+
 /**
  * Generates a PDF invoice for a shipment
  * @param {Object} shipment - The shipment object
@@ -151,26 +168,69 @@ function generateInvoice(shipment) {
      .text('Handling Fee', 70, 490)
      .text(`$${(shipment.cost * 0.2).toFixed(2)}`, 450, 490, { align: 'right' });
   
+  // Calculate taxes based on province
+  const baseAmount = shipment.cost;
+  const province = shipment.province || 'ON';
+  const taxes = calculateTaxes(baseAmount, province);
+  const totalWithTax = baseAmount + taxes.totalTaxAmount;
+  
+  let currentY = 510;
+  
+  // Add tax information to the invoice
+  if (taxes.hst > 0) {
+    doc.font('Helvetica')
+       .fontSize(10)
+       .text(`HST (${taxes.hstRate}%)`, 70, currentY)
+       .text(`$${taxes.hst.toFixed(2)}`, 450, currentY, { align: 'right' });
+    currentY += 20;
+  }
+  
+  if (taxes.gst > 0) {
+    doc.font('Helvetica')
+       .fontSize(10)
+       .text(`GST (${taxes.gstRate}%)`, 70, currentY)
+       .text(`$${taxes.gst.toFixed(2)}`, 450, currentY, { align: 'right' });
+    currentY += 20;
+  }
+  
+  if (taxes.pst > 0) {
+    doc.font('Helvetica')
+       .fontSize(10)
+       .text(`PST (${taxes.pstRate}%)`, 70, currentY)
+       .text(`$${taxes.pst.toFixed(2)}`, 450, currentY, { align: 'right' });
+    currentY += 20;
+  }
+  
+  if (taxes.qst > 0) {
+    doc.font('Helvetica')
+       .fontSize(10)
+       .text(`QST (${taxes.qstRate}%)`, 70, currentY)
+       .text(`$${taxes.qst.toFixed(2)}`, 450, currentY, { align: 'right' });
+    currentY += 20;
+  }
+  
   // Line before total
   doc.strokeColor('#cccccc')
      .lineWidth(0.5)
-     .moveTo(70, 510)
-     .lineTo(530, 510)
+     .moveTo(70, currentY)
+     .lineTo(530, currentY)
      .stroke();
   
-  // Total
-  doc.font('Helvetica-Bold')
-     .fontSize(12)
-     .fillColor('#333333')
-     .text('Total', 70, 530)
-     .text(`$${parseFloat(shipment.cost).toFixed(2)}`, 450, 530, { align: 'right' });
+  currentY += 20;
+  
+  // Total with tax
+  doc.fontSize(12)
+     .font('Helvetica-Bold')
+     .text('TOTAL', 400, doc.y)
+     .text(`$${totalWithTax.toFixed(2)}`, 500, doc.y, { align: 'right' });
   
   // Add a note
   doc.font('Helvetica')
      .fontSize(10)
      .fillColor('#666666')
-     .text('Thank you for choosing Courier Platform for your shipping needs.', 50, 570)
-     .text('Payment is due within 30 days of invoice date.', 50, 585);
+     .text('Thank you for choosing Courier Platform for your shipping needs.', 50, doc.y + 40);
+  
+  doc.text('Payment is due within 30 days of invoice date.', 50, doc.y + 15);
   
   // Footer
   doc.fontSize(10)
@@ -206,7 +266,8 @@ function generateInvoiceFromDbData(shipmentData) {
       shipmentData.delivery_postal_code,
       shipmentData.province
     ),
-    cost: shipmentData.quote_amount || 0
+    cost: shipmentData.quote_amount || 0,
+    province: shipmentData.province || 'ON' // Add province for tax calculations, default to Ontario
   };
   
   return generateInvoice(shipment);
@@ -238,7 +299,54 @@ function formatAddress(address, city, postalCode, province) {
   return parts.join('\n');
 }
 
-module.exports = { 
-  generateInvoice,
-  generateInvoiceFromDbData
+/**
+ * Calculate taxes based on province
+ * @param {number} amount - Base amount
+ * @param {string} province - Province code (2 letters)
+ * @returns {Object} Tax breakdown
+ */
+function calculateTaxes(amount, province) {
+  const taxInfo = PROVINCE_TAXES[province] || PROVINCE_TAXES['ON']; // Default to Ontario
+  const result = {
+    totalTaxAmount: 0,
+    gst: 0,
+    pst: 0,
+    qst: 0,
+    hst: 0,
+    gstRate: taxInfo.gst || 0,
+    pstRate: taxInfo.pst || 0,
+    qstRate: taxInfo.qst || 0,
+    hstRate: taxInfo.hst || 0
+  };
+  
+  // Calculate GST
+  if (taxInfo.gst) {
+    result.gst = amount * (taxInfo.gst / 100);
+    result.totalTaxAmount += result.gst;
+  }
+  
+  // Calculate PST
+  if (taxInfo.pst) {
+    result.pst = amount * (taxInfo.pst / 100);
+    result.totalTaxAmount += result.pst;
+  }
+  
+  // Calculate QST (different calculation in Quebec)
+  if (taxInfo.qst) {
+    result.qst = (amount + result.gst) * (taxInfo.qst / 100);
+    result.totalTaxAmount += result.qst;
+  }
+  
+  // Calculate HST
+  if (taxInfo.hst) {
+    result.hst = amount * (taxInfo.hst / 100);
+    result.totalTaxAmount += result.hst;
+  }
+  
+  return result;
+}
+
+module.exports = {
+  generateInvoiceFromDbData,
+  calculateTaxes
 }; 

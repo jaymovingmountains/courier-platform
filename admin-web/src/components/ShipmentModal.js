@@ -34,6 +34,16 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
+  // Find the shipper details from users array
+  const getShipperDetails = () => {
+    if (!shipment.shipper_id) return { name: 'Unknown', username: 'Unknown' };
+    const shipper = users.find(user => user.id === shipment.shipper_id);
+    return shipper || { name: `Unknown (ID: ${shipment.shipper_id})`, username: 'Unknown' };
+  };
+
+  // Get shipper information
+  const shipper = getShipperDetails();
+
   // Handle generating and viewing invoice
   const handleViewInvoice = () => {
     if (!shipment.id) return;
@@ -103,33 +113,32 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
                 <span className="detail-label">Postal Code:</span>
                 <span className="detail-value">{shipment.delivery_postal_code || 'N/A'}</span>
               </div>
+              <div className="detail-item">
+                <span className="detail-label">Province:</span>
+                <span className="detail-value">{shipment.province || 'N/A'}</span>
+              </div>
             </div>
-          </div>
-          
-          <div className="shipment-details-grid">
+            
             <div className="detail-section">
-              <h3>Package Details</h3>
+              <h3>Shipper Information</h3>
               <div className="detail-item">
-                <span className="detail-label">Weight:</span>
-                <span className="detail-value">{shipment.weight ? `${shipment.weight} kg` : 'N/A'}</span>
+                <span className="detail-label">Name:</span>
+                <span className="detail-value">{shipper.name || shipper.username || 'N/A'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Dimensions:</span>
-                <span className="detail-value">
-                  {shipment.length && shipment.width && shipment.height ? 
-                    `${shipment.length}×${shipment.width}×${shipment.height} in` : 
-                    'N/A'}
-                </span>
+                <span className="detail-label">Username:</span>
+                <span className="detail-value">{shipper.username || 'N/A'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Special Handling:</span>
-                <span className="detail-value">
-                  {shipment.is_fragile ? 'Fragile' : ''}
-                  {shipment.is_fragile && shipment.requires_refrigeration ? ', ' : ''}
-                  {shipment.requires_refrigeration ? 'Refrigeration Required' : ''}
-                  {!shipment.is_fragile && !shipment.requires_refrigeration ? 'None' : ''}
-                </span>
+                <span className="detail-label">ID:</span>
+                <span className="detail-value">{shipment.shipper_id || 'N/A'}</span>
               </div>
+              {shipper.email && (
+                <div className="detail-item">
+                  <span className="detail-label">Email:</span>
+                  <span className="detail-value">{shipper.email}</span>
+                </div>
+              )}
             </div>
             
             <div className="detail-section">
@@ -145,17 +154,13 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
                 </span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Shipper ID:</span>
-                <span className="detail-value">{shipment.shipper_id || 'N/A'}</span>
-              </div>
-              <div className="detail-item">
                 <span className="detail-label">Driver:</span>
                 <span className="detail-value">
                   {shipment.driver_id 
                     ? (() => {
                         const driver = users.find(user => user.id === shipment.driver_id);
                         return driver 
-                          ? `${driver.username} (ID: ${driver.id})` 
+                          ? `${driver.name || driver.username} (ID: ${driver.id})` 
                           : `ID: ${shipment.driver_id}`;
                       })() 
                     : 'Not Assigned'}
@@ -168,7 +173,7 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
                     ? (() => {
                         const vehicle = vehicles.find(v => v.id === shipment.vehicle_id);
                         return vehicle 
-                          ? `${vehicle.vehicle_name} (${vehicle.license_plate})` 
+                          ? `${vehicle.vehicle_name} (License: ${vehicle.license_plate})` 
                           : `ID: ${shipment.vehicle_id}`;
                       })() 
                     : 'Not Assigned'}
@@ -176,26 +181,17 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
               </div>
             </div>
           </div>
-        </div>
-        
-        <div className="modal-footer">
-          <button 
-            className="print-label-button"
-            onClick={() => onPrintLabel(shipment.id)}
-            disabled={!shipment.id}
-          >
-            Print Shipping Label
-          </button>
-          <button 
-            className="view-invoice-button"
-            onClick={handleViewInvoice}
-            disabled={!shipment.id || !shipment.quote_amount}
-          >
-            View Invoice
-          </button>
-          <button className="close-modal-button" onClick={onClose}>
-            Close
-          </button>
+          
+          <div className="modal-actions">
+            <button className="action-button print" onClick={() => onPrintLabel(shipment.id)}>
+              <i className="fas fa-print"></i> Print Label
+            </button>
+            {['picked_up', 'in_transit', 'delivered'].includes(shipment.status) && (
+              <button className="action-button invoice" onClick={handleViewInvoice}>
+                <i className="fas fa-file-invoice-dollar"></i> View Invoice
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

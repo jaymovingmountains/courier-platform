@@ -123,6 +123,16 @@ const Dashboard = () => {
         Cell: ({ value }) => value.charAt(0).toUpperCase() + value.slice(1)
       },
       {
+        Header: 'Shipper',
+        accessor: 'shipper_id',
+        Cell: ({ value }) => {
+          const shipper = users.find(u => u.id === value);
+          return shipper 
+            ? shipper.name || shipper.username 
+            : `Shipper #${value}`;
+        }
+      },
+      {
         Header: 'Status',
         accessor: 'status',
         Cell: ({ value }) => (
@@ -174,7 +184,7 @@ const Dashboard = () => {
         )
       }
     ],
-    [navigate]
+    [navigate, users]
   );
 
   const {

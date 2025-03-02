@@ -47,6 +47,7 @@ const Navigation = () => {
       { name: 'Dashboard', path: '/dashboard', icon: 'fa-tachometer-alt', roles: ['shipper', 'admin'] },
       { name: 'Shipments', path: '/shipments', icon: 'fa-truck', roles: ['shipper', 'admin'] },
       { name: 'Create Shipment', path: '/shipments/new', icon: 'fa-plus', roles: ['shipper'] },
+      { name: 'Saved Addresses', path: '/saved-addresses', icon: 'fa-map-marker-alt', roles: ['shipper'] },
       { name: 'Clients', path: '/manage-clients', icon: 'fa-users', roles: ['shipper'] },
       { name: 'Invoices', path: '/invoices', icon: 'fa-file-invoice-dollar', roles: ['shipper'] },
     ];
@@ -128,22 +129,21 @@ const Navigation = () => {
           
           {user && (
             <div className="navbar-nav dropdown">
-              <a 
+              <button 
                 className="nav-link dropdown-toggle" 
-                href="#" 
+                type="button"
                 id="navbarDropdown" 
-                role="button" 
                 onClick={toggleProfileDropdown}
                 aria-expanded={profileDropdownOpen ? "true" : "false"}
               >
                 <i className="fas fa-user-circle me-1"></i>
-                {user.username || user.email || 'User'}
-              </a>
+                {user.name || user.username || 'User'}
+              </button>
               <ul 
                 className={`dropdown-menu dropdown-menu-end ${profileDropdownOpen ? 'show' : ''}`} 
                 aria-labelledby="navbarDropdown"
               >
-                <li><Link className="dropdown-item" to="/profile"><i className="fas fa-user me-2"></i>Profile</Link></li>
+                <li><Link className="dropdown-item" to="/profile"><i className="fas fa-user-circle me-2"></i>Profile</Link></li>
                 <li><Link className="dropdown-item" to="/settings"><i className="fas fa-cog me-2"></i>Settings</Link></li>
                 <li><hr className="dropdown-divider" /></li>
                 <li>

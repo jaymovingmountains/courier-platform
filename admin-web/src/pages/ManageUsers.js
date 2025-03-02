@@ -15,6 +15,9 @@ const userSchema = Yup.object().shape({
   role: Yup.string()
     .oneOf(['shipper', 'driver', 'admin'], 'Invalid role')
     .required('Role is required'),
+  name: Yup.string()
+    .required('Name is required')
+    .min(2, 'Name must be at least 2 characters'),
 });
 
 const ManageUsers = () => {
@@ -121,6 +124,11 @@ const ManageUsers = () => {
         Cell: ({ value }) => `#${value}`
       },
       {
+        Header: 'Name',
+        accessor: 'name',
+        Cell: ({ value }) => value || 'Not set'
+      },
+      {
         Header: 'Username',
         accessor: 'username'
       },
@@ -182,6 +190,20 @@ const ManageUsers = () => {
       {({ errors, touched, isSubmitting }) => (
         <Form className="user-form">
           <h2>{title}</h2>
+          
+          <div className="form-group">
+            <label htmlFor="name">Full Name</label>
+            <Field
+              type="text"
+              name="name"
+              className={`form-control ${
+                errors.name && touched.name ? 'is-invalid' : ''
+              }`}
+            />
+            {errors.name && touched.name && (
+              <div className="error-message">{errors.name}</div>
+            )}
+          </div>
           
           <div className="form-group">
             <label htmlFor="username">Username</label>
@@ -285,7 +307,8 @@ const ManageUsers = () => {
               initialValues={{
                 username: '',
                 password: '',
-                role: ''
+                role: '',
+                name: ''
               }}
               onSubmit={handleCreateUser}
               title="Add New User"
@@ -302,7 +325,8 @@ const ManageUsers = () => {
               initialValues={{
                 username: editingUser.username,
                 password: '',
-                role: editingUser.role
+                role: editingUser.role,
+                name: editingUser.name || ''
               }}
               onSubmit={handleUpdateUser}
               title="Edit User"

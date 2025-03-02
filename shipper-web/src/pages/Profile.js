@@ -11,6 +11,7 @@ const Profile = () => {
   const [success, setSuccess] = useState(null);
   const [formData, setFormData] = useState({
     username: user?.username || '',
+    name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     notifications: user?.notifications || {
@@ -103,6 +104,18 @@ const Profile = () => {
                 id="username"
                 name="username"
                 value={formData.username}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="name">Name</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                value={formData.name}
                 onChange={handleInputChange}
                 disabled={!isEditing}
               />

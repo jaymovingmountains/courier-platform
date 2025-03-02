@@ -10,6 +10,7 @@ const QRCode = require('qrcode');
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
+const { generateInvoiceFromDbData, calculateTaxes } = require('./utils/invoiceGenerator');
 
 // Helper function to validate Canadian province codes
 const validateProvinceCode = (province) => {
@@ -190,7 +191,7 @@ const authorize = (roles = []) => {
 // Register endpoint
 app.post('/register', async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password, role, name } = req.body;
 
     // Validate role
     if (!['shipper', 'admin', 'driver'].includes(role)) {
@@ -203,11 +204,14 @@ app.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Username taken' });
     }
 
+    // Use name if provided, otherwise use username as default
+    const displayName = name || username;
+
     // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
     await run(
-      'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
-      [username, hashedPassword, role]
+      'INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, role, displayName]
     );
 
     res.status(201).json({ message: 'User registered' });
@@ -221,32 +225,19 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log('Login attempt:', { 
-      username, 
-      portal: req.headers['x-portal'],
-      headers: req.headers
-    });
 
     // Get user from database
-    const user = await get('SELECT id, username, password, role FROM users WHERE username = ?', [username]);
-    console.log('Database lookup result:', {
-      userFound: !!user,
-      role: user?.role,
-      requestedPortal: req.headers['x-portal']
-    });
-
+    const user = await get('SELECT id, username, password, role, name FROM users WHERE username = ?', [username]);
     if (!user) {
-      console.log('Login failed: User not found');
-      return res.status(401).json({ error: 'Invalid credentials' });
+      console.log('Login failed: User not found:', { username });
+      return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     // Verify password
-    const validPassword = await bcrypt.compare(password, user.password);
-    console.log('Password verification result:', validPassword ? 'Valid' : 'Invalid');
-
-    if (!validPassword) {
-      console.log('Login failed: Invalid password');
-      return res.status(401).json({ error: 'Invalid credentials' });
+    const passwordValid = await bcrypt.compare(password, user.password);
+    if (!passwordValid) {
+      console.log('Login failed: Invalid password for user:', { username });
+      return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     // For shipper portal, verify role
@@ -272,14 +263,16 @@ app.post('/login', async (req, res) => {
       { 
         id: user.id,
         username: user.username,
-        role: user.role 
+        role: user.role,
+        name: user.name || user.username // Include name in token, fallback to username if name is null
       },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
     console.log('Login successful:', { 
       username: user.username, 
-      role: user.role 
+      role: user.role,
+      name: user.name
     });
 
     res.json({ token });
@@ -788,18 +781,212 @@ app.put('/clients/:id', authorize(['shipper']), async (req, res) => {
 // Delete client (Shipper only)
 app.delete('/clients/:id', authorize(['shipper']), async (req, res) => {
   try {
-    const result = await run(
-      'DELETE FROM clients WHERE id = ? AND shipper_id = ?',
+    const client = await get(
+      'SELECT id FROM clients WHERE id = ? AND shipper_id = ?',
       [req.params.id, req.auth.id]
     );
 
-    if (result.changes === 0) {
+    if (!client) {
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    res.json({ message: 'Client deleted successfully' });
+    await run('DELETE FROM clients WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Client deleted' });
   } catch (error) {
     console.error('Delete client error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Saved Addresses endpoints
+// Get all saved addresses for the current shipper
+app.get('/addresses', authorize(['shipper']), async (req, res) => {
+  try {
+    const addresses = await all(
+      'SELECT * FROM saved_addresses WHERE shipper_id = ? ORDER BY is_default DESC, created_at DESC',
+      [req.auth.id]
+    );
+    res.json(addresses);
+  } catch (error) {
+    console.error('Get saved addresses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create a new saved address
+app.post('/addresses', authorize(['shipper']), async (req, res) => {
+  try {
+    const {
+      address_name,
+      address,
+      city,
+      postal_code,
+      province,
+      is_default,
+      is_pickup
+    } = req.body;
+
+    // Validate required fields
+    if (!address_name || !address || !city || !postal_code || !province) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // If this address is set as default, unset any other default addresses of the same type
+    if (is_default) {
+      await run(
+        'UPDATE saved_addresses SET is_default = 0 WHERE shipper_id = ? AND is_pickup = ?',
+        [req.auth.id, is_pickup ? 1 : 0]
+      );
+    }
+
+    const result = await run(
+      `INSERT INTO saved_addresses (
+        shipper_id,
+        address_name,
+        address,
+        city,
+        postal_code,
+        province,
+        is_default,
+        is_pickup
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.auth.id,
+        address_name,
+        address,
+        city,
+        postal_code,
+        province,
+        is_default ? 1 : 0,
+        is_pickup !== undefined ? (is_pickup ? 1 : 0) : 1
+      ]
+    );
+
+    // Get the newly created address
+    const newAddress = await get(
+      'SELECT * FROM saved_addresses WHERE id = ?',
+      [result.id]
+    );
+
+    res.status(201).json(newAddress);
+  } catch (error) {
+    console.error('Create saved address error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update a saved address
+app.put('/addresses/:id', authorize(['shipper']), async (req, res) => {
+  try {
+    // Check if address exists and belongs to current shipper
+    const address = await get(
+      'SELECT * FROM saved_addresses WHERE id = ? AND shipper_id = ?',
+      [req.params.id, req.auth.id]
+    );
+
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    const {
+      address_name,
+      address: addressText,
+      city,
+      postal_code,
+      province,
+      is_default,
+      is_pickup
+    } = req.body;
+
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+
+    if (address_name !== undefined) {
+      updates.push('address_name = ?');
+      values.push(address_name);
+    }
+
+    if (addressText !== undefined) {
+      updates.push('address = ?');
+      values.push(addressText);
+    }
+
+    if (city !== undefined) {
+      updates.push('city = ?');
+      values.push(city);
+    }
+
+    if (postal_code !== undefined) {
+      updates.push('postal_code = ?');
+      values.push(postal_code);
+    }
+
+    if (province !== undefined) {
+      updates.push('province = ?');
+      values.push(province);
+    }
+
+    if (is_pickup !== undefined) {
+      updates.push('is_pickup = ?');
+      values.push(is_pickup ? 1 : 0);
+    }
+
+    if (is_default !== undefined) {
+      updates.push('is_default = ?');
+      values.push(is_default ? 1 : 0);
+
+      // If setting as default, unset any other default addresses of the same type
+      if (is_default) {
+        await run(
+          'UPDATE saved_addresses SET is_default = 0 WHERE shipper_id = ? AND id != ? AND is_pickup = ?',
+          [req.auth.id, req.params.id, address.is_pickup]
+        );
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    // Add ID to values array
+    values.push(req.params.id);
+
+    // Update address
+    await run(
+      `UPDATE saved_addresses SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    // Get updated address
+    const updatedAddress = await get(
+      'SELECT * FROM saved_addresses WHERE id = ?',
+      [req.params.id]
+    );
+
+    res.json(updatedAddress);
+  } catch (error) {
+    console.error('Update saved address error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete a saved address
+app.delete('/addresses/:id', authorize(['shipper']), async (req, res) => {
+  try {
+    const address = await get(
+      'SELECT id FROM saved_addresses WHERE id = ? AND shipper_id = ?',
+      [req.params.id, req.auth.id]
+    );
+
+    if (!address) {
+      return res.status(404).json({ error: 'Address not found' });
+    }
+
+    await run('DELETE FROM saved_addresses WHERE id = ?', [req.params.id]);
+    res.json({ message: 'Address deleted' });
+  } catch (error) {
+    console.error('Delete saved address error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -809,7 +996,7 @@ app.delete('/clients/:id', authorize(['shipper']), async (req, res) => {
 app.get('/users', authorize(['admin']), async (req, res) => {
   try {
     const users = await all(
-      'SELECT id, username, role FROM users',
+      'SELECT id, username, role, name, email, phone FROM users',
       []
     );
     res.json(users);
@@ -1314,7 +1501,7 @@ app.put('/jobs/:id/status', authorize(['driver']), async (req, res) => {
     if (status === 'picked_up') {
       // Fetch complete shipment details with shipper name
       const shipmentDetails = await get(`
-        SELECT s.*, u.username as shipper_name
+        SELECT s.*, u.username as shipper_name, u.email as shipper_email
         FROM shipments s
         JOIN users u ON s.shipper_id = u.id
         WHERE s.id = ?
@@ -1323,18 +1510,22 @@ app.put('/jobs/:id/status', authorize(['driver']), async (req, res) => {
       // Check if invoice already exists
       if (!shipmentDetails.invoiceUrl) {
         try {
-          // Import the invoice generator
-          const { generateInvoiceFromDbData } = require('./utils/invoiceGenerator');
+          // Calculate taxes based on province
+          const baseAmount = shipmentDetails.quote_amount || 0;
+          const taxes = calculateTaxes(baseAmount, shipmentDetails.province || 'ON');
+          const totalWithTax = baseAmount + taxes.totalTaxAmount;
           
           // Generate the invoice
           const invoicePath = generateInvoiceFromDbData(shipmentDetails);
           
-          // Update the shipment record with the invoice URL
+          // Update the shipment record with the invoice URL and tax info
           const relativeInvoicePath = path.relative(__dirname, invoicePath);
           await run(
-            'UPDATE shipments SET invoiceUrl = ? WHERE id = ?',
-            [relativeInvoicePath, req.params.id]
+            'UPDATE shipments SET invoiceUrl = ?, tax_amount = ?, total_amount = ?, payment_status = ? WHERE id = ?',
+            [relativeInvoicePath, taxes.totalTaxAmount, totalWithTax, 'unpaid', req.params.id]
           );
+          
+          console.log(`✅ Generated invoice with tax calculations for shipment #${req.params.id}`);
         } catch (invoiceError) {
           console.error('Error generating invoice:', invoiceError);
           // Continue with status update even if invoice generation fails
@@ -1834,17 +2025,19 @@ app.get('/shipments/:id/invoice', async (req, res) => {
       }
     }
     
-    // Import the invoice generator
-    const { generateInvoiceFromDbData } = require('./utils/invoiceGenerator');
+    // Calculate taxes based on province
+    const baseAmount = shipment.quote_amount || 0;
+    const taxes = calculateTaxes(baseAmount, shipment.province || 'ON');
+    const totalWithTax = baseAmount + taxes.totalTaxAmount;
     
     // Generate the invoice
     const invoicePath = generateInvoiceFromDbData(shipment);
     
-    // Update the shipment record with the invoice URL
+    // Update the shipment record with the invoice URL and tax info
     const relativeInvoicePath = path.relative(__dirname, invoicePath);
     await run(
-      'UPDATE shipments SET invoiceUrl = ? WHERE id = ?',
-      [relativeInvoicePath, shipment.id]
+      'UPDATE shipments SET invoiceUrl = ?, tax_amount = ?, total_amount = ?, payment_status = ? WHERE id = ?',
+      [relativeInvoicePath, taxes.totalTaxAmount, totalWithTax, 'unpaid', shipment.id]
     );
     
     // Send the invoice file
@@ -1952,8 +2145,271 @@ app.get('/api/notifications/count', jwt(), async (req, res) => {
   }
 });
 
+// Profile update endpoint
+app.put('/users/profile', expressJwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
+  try {
+    const userId = req.auth.id;
+    const { name, email, phone } = req.body;
+
+    // Update user profile
+    await run(
+      'UPDATE users SET name = ?, email = ?, phone = ? WHERE id = ?',
+      [name, email, phone, userId]
+    );
+
+    // Get updated user data
+    const updatedUser = await get('SELECT id, username, role, name, email, phone FROM users WHERE id = ?', [userId]);
+    
+    // Generate new token with updated information
+    const token = jsonwebtoken.sign(
+      { 
+        id: updatedUser.id,
+        username: updatedUser.username,
+        role: updatedUser.role,
+        name: updatedUser.name || updatedUser.username,
+        email: updatedUser.email || ''
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ 
+      message: 'Profile updated successfully',
+      token
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: 'An error occurred while updating profile' });
+  }
+});
+
+// Admin only routes for managing users
+// Get user by ID (Admin only)
+app.get('/users/:id', authorize(['admin']), async (req, res) => {
+  try {
+    const user = await get(
+      'SELECT id, username, role, name, email, phone FROM users WHERE id = ?',
+      [req.params.id]
+    );
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user by ID (Admin only)
+app.put('/users/:id', authorize(['admin']), async (req, res) => {
+  try {
+    const { username, password, role, name, email, phone } = req.body;
+    
+    // Check if user exists
+    const user = await get('SELECT id FROM users WHERE id = ?', [req.params.id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Check if username is being changed and if it's already taken
+    if (username) {
+      const existingUser = await get(
+        'SELECT id FROM users WHERE username = ? AND id != ?', 
+        [username, req.params.id]
+      );
+      
+      if (existingUser) {
+        return res.status(400).json({ error: 'Username already taken' });
+      }
+    }
+    
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+    
+    if (username) {
+      updates.push('username = ?');
+      values.push(username);
+    }
+    
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updates.push('password = ?');
+      values.push(hashedPassword);
+    }
+    
+    if (role) {
+      if (!['shipper', 'admin', 'driver'].includes(role)) {
+        return res.status(400).json({ error: 'Invalid role' });
+      }
+      updates.push('role = ?');
+      values.push(role);
+    }
+    
+    if (name !== undefined) {
+      updates.push('name = ?');
+      values.push(name);
+    }
+    
+    if (email !== undefined) {
+      updates.push('email = ?');
+      values.push(email);
+    }
+    
+    if (phone !== undefined) {
+      updates.push('phone = ?');
+      values.push(phone);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    
+    // Add id to values array
+    values.push(req.params.id);
+    
+    // Update user
+    await run(
+      `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+    
+    // Get updated user data
+    const updatedUser = await get(
+      'SELECT id, username, role, name, email, phone FROM users WHERE id = ?',
+      [req.params.id]
+    );
+    
+    res.json({ 
+      message: 'User updated successfully',
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete user by ID (Admin only)
+app.delete('/users/:id', authorize(['admin']), async (req, res) => {
+  try {
+    // Check if user exists
+    const user = await get('SELECT id, role FROM users WHERE id = ?', [req.params.id]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Prevent deleting admin users 
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Cannot delete admin users' });
+    }
+    
+    // Delete user
+    await run('DELETE FROM users WHERE id = ?', [req.params.id]);
+    
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Start server
 app.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
   console.log(`📚 API Documentation available at http://localhost:${port}/api-docs`);
+});
+
+// Get invoice details with tax breakdown
+app.get('/api/shipments/:id/invoice-details', jwt(), async (req, res) => {
+  try {
+    // Check shipment access based on role
+    let query = `
+      SELECT s.*, u.username as shipper_name
+      FROM shipments s
+      JOIN users u ON s.shipper_id = u.id
+      WHERE s.id = ?
+    `;
+    const params = [req.params.id];
+    
+    // Add role-based filtering
+    switch (req.auth.role) {
+      case 'shipper':
+        query += ' AND s.shipper_id = ?';
+        params.push(req.auth.id);
+        break;
+      case 'admin':
+        // No filter - admin sees all shipments
+        break;
+      default:
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    const shipment = await get(query, params);
+    
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    
+    // Calculate taxes if needed
+    let taxInfo = {};
+    if (shipment.tax_amount) {
+      // Use stored tax amount
+      taxInfo = {
+        totalTaxAmount: shipment.tax_amount
+      };
+    } else {
+      // Calculate taxes on the fly
+      const baseAmount = shipment.quote_amount || 0;
+      taxInfo = calculateTaxes(baseAmount, shipment.province || 'ON');
+    }
+    
+    // Format response
+    const invoiceDetails = {
+      shipment_id: shipment.id,
+      invoice_number: `MML-${shipment.id}`,
+      date_issued: shipment.created_at,
+      shipper_name: shipment.shipper_name,
+      base_amount: shipment.quote_amount || 0,
+      tax_amount: taxInfo.totalTaxAmount,
+      total_amount: shipment.total_amount || (shipment.quote_amount + taxInfo.totalTaxAmount),
+      payment_status: shipment.payment_status || 'unpaid',
+      invoice_url: shipment.invoiceUrl ? `/invoices/${path.basename(shipment.invoiceUrl)}` : null,
+      tax_breakdown: {
+        gst: taxInfo.gst,
+        pst: taxInfo.pst,
+        qst: taxInfo.qst,
+        hst: taxInfo.hst
+      }
+    };
+    
+    res.json(invoiceDetails);
+  } catch (error) {
+    console.error('Error getting invoice details:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add route to mark invoice as paid (admin only)
+app.put('/api/shipments/:id/mark-paid', authorize(['admin']), async (req, res) => {
+  try {
+    const shipment = await get('SELECT * FROM shipments WHERE id = ?', [req.params.id]);
+    
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    
+    await run(
+      'UPDATE shipments SET payment_status = ? WHERE id = ?',
+      ['paid', req.params.id]
+    );
+    
+    res.json({ message: 'Invoice marked as paid' });
+  } catch (error) {
+    console.error('Error marking invoice as paid:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }); 

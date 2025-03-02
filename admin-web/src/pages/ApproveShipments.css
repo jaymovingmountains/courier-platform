@@ -1,2 +1,14 @@
 /* ApproveShipments.css */
-/* All styling is now handled by Tailwind CSS classes in the component */ 
+/* All styling is now handled by Tailwind CSS classes in the component */
+
+/* Shipper information styling */
+.detail-group:nth-child(2) .text-gray-800 {
+  background-color: rgba(66, 153, 225, 0.1) !important;
+  border-left: 3px solid #4299e1;
+  font-weight: 500;
+}
+
+.detail-group:nth-child(2) label {
+  color: #4299e1;
+  font-weight: 600;
+} 

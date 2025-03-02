@@ -117,104 +117,88 @@
 
 .shipment-details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  padding: 20px 0;
 }
 
 .detail-section {
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.25rem;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
 }
 
 .detail-section h3 {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  color: #2c3e50;
-  font-size: 1.1rem;
-  border-bottom: 1px solid #eaeaea;
-  padding-bottom: 0.5rem;
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 8px;
 }
 
 .detail-item {
   display: flex;
-  margin-bottom: 0.75rem;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .detail-label {
-  font-weight: 600;
-  color: #7f8c8d;
-  width: 120px;
-  flex-shrink: 0;
+  font-weight: 500;
+  color: #555;
+  flex-basis: 30%;
 }
 
 .detail-value {
-  color: #2c3e50;
+  flex-basis: 70%;
+  text-align: right;
 }
 
-.modal-footer {
+/* Shipper section styling */
+.detail-section:nth-child(3) {
+  background-color: #f0f7ff;
+  border-left: 4px solid #3498db;
+}
+
+/* Modal actions */
+.modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  border-top: 1px solid #eaeaea;
-  background-color: #f8f9fa;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #e0e0e0;
 }
 
-.print-label-button {
-  padding: 0.625rem 1.25rem;
-  background-color: #3498db;
-  color: white;
-  border: none;
+.action-button {
+  padding: 8px 16px;
   border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s;
+  border: none;
 }
 
-.print-label-button:hover:not(:disabled) {
+.action-button.print {
+  background-color: #3498db;
+  color: white;
+}
+
+.action-button.print:hover {
   background-color: #2980b9;
 }
 
-.print-label-button:disabled {
-  background-color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.view-invoice-button {
-  padding: 0.625rem 1.25rem;
-  background-color: #27ae60;
+.action-button.invoice {
+  background-color: #2ecc71;
   color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
 }
 
-.view-invoice-button:hover:not(:disabled) {
-  background-color: #219653;
-}
-
-.view-invoice-button:disabled {
-  background-color: #bdc3c7;
-  cursor: not-allowed;
-}
-
-.close-modal-button {
-  padding: 0.625rem 1.25rem;
-  background-color: #f1f1f1;
-  color: #333;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.close-modal-button:hover {
-  background-color: #e0e0e0;
+.action-button.invoice:hover {
+  background-color: #27ae60;
 }
 
 @keyframes fadeIn {

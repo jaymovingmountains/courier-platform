@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import axios from 'axios';
-import { FaBox, FaTruck, FaRocket, FaMapMarkerAlt, FaRegCalendarAlt, FaBoxOpen, FaWeightHanging, FaEdit, FaCheckCircle, FaSave, FaAngleLeft, FaAngleRight } from 'react-icons/fa';
+import { FaBox, FaTruck, FaRocket, FaMapMarkerAlt, FaRegCalendarAlt, FaBoxOpen, FaWeightHanging, FaCheckCircle, FaAngleLeft, FaAngleRight } from 'react-icons/fa';
 import './CreateShipment.css';
 
 // Constants
-const GEOAPIFY_API_KEY = process.env.REACT_APP_GEOAPIFY_API_KEY || '827b47a2fafa4abdbd69f3073195aedf';
+// const GEOAPIFY_API_KEY = process.env.REACT_APP_GEOAPIFY_API_KEY || '827b47a2fafa4abdbd69f3073195aedf';
 
 // Canadian provinces and territories array
 const PROVINCES = [
@@ -141,8 +141,8 @@ const CreateShipment = () => {
   const [createSuccess, setCreateSuccess] = useState(false);
   const [createdShipmentId, setCreatedShipmentId] = useState(null);
   const [savedAddresses, setSavedAddresses] = useState([]);
+  const [savedPickupAddresses, setSavedPickupAddresses] = useState([]);
   const [showSavedAddresses, setShowSavedAddresses] = useState(false);
-  const [showSavedDeliveryAddresses, setShowSavedDeliveryAddresses] = useState(false);
   const [formValues, setFormValues] = useState({});
 
   console.log('Component render state:', { 
@@ -152,13 +152,12 @@ const CreateShipment = () => {
     isSubmitting 
   });
 
-  // Debug function to manually trigger success view
-  const debugTriggerSuccess = () => {
-    const demoId = 'debug-' + Math.floor(Math.random() * 1000);
-    setCreatedShipmentId(demoId);
-    setCreateSuccess(true);
-    console.log('Debug: Manually triggered success view');
-  };
+  // For development debugging - uncomment when needed
+  // const debugTriggerSuccess = () => {
+  //   const demoId = 'debug-' + Math.floor(Math.random() * 1000);
+  //   setCreatedShipmentId(demoId);
+  //   setCreateSuccess(true);
+  // };
 
   // Fetch saved addresses on component mount
   useEffect(() => {
@@ -180,6 +179,31 @@ const CreateShipment = () => {
     };
 
     fetchSavedAddresses();
+  }, []);
+
+  // Fetch saved pickup addresses
+  useEffect(() => {
+    const fetchSavedPickupAddresses = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(
+          'http://localhost:3001/addresses',
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        
+        // Filter for pickup addresses (where is_pickup = 1)
+        const pickupAddresses = response.data.filter(addr => addr.is_pickup === 1);
+        setSavedPickupAddresses(pickupAddresses);
+      } catch (error) {
+        console.error('Error fetching saved pickup addresses:', error);
+      }
+    };
+
+    fetchSavedPickupAddresses();
   }, []);
 
   // Calculate estimates when form values change
@@ -347,16 +371,17 @@ const CreateShipment = () => {
       }
 
       const addressData = {
-        name: 'Pickup Address', // Default name for pickup address
+        address_name: `Pickup: ${values.pickup_city}`,
         address: values.pickup_address,
         city: values.pickup_city,
         postal_code: values.pickup_postal_code,
         province: values.pickup_province,
-        is_default: false
+        is_default: false,
+        is_pickup: true
       };
 
       const response = await axios.post(
-        'http://localhost:3001/clients',
+        'http://localhost:3001/addresses',
         addressData,
         {
           headers: {
@@ -370,14 +395,17 @@ const CreateShipment = () => {
       
       // Refresh the saved addresses list
       const updatedAddressesResponse = await axios.get(
-        'http://localhost:3001/clients',
+        'http://localhost:3001/addresses',
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
-      setSavedAddresses(updatedAddressesResponse.data);
+      
+      // Filter pickup addresses
+      const pickupAddresses = updatedAddressesResponse.data.filter(addr => addr.is_pickup === 1);
+      setSavedPickupAddresses(pickupAddresses);
       
       return response.data;
     } catch (error) {
@@ -386,21 +414,22 @@ const CreateShipment = () => {
     }
   };
 
-  // Helper function to use saved address (not a hook)
+  // Helper function to use saved address
   const applySavedAddress = (address, formikProps, type) => {
     const fieldPrefix = type === 'pickup' ? 'pickup' : 'delivery';
+    
+    // Check which format of address we're dealing with (client or saved_addresses)
     const values = {
       [`${fieldPrefix}_address`]: address.address,
       [`${fieldPrefix}_city`]: address.city,
       [`${fieldPrefix}_postal_code`]: address.postal_code,
-      // If the address has a province, use it; otherwise, keep the current value
+      // Handle province, which could be in different formats
       [`${fieldPrefix}_province`]: address.province || formikProps.values[`${fieldPrefix}_province`]
     };
+    
     formikProps.setValues({ ...formikProps.values, ...values });
     if (type === 'pickup') {
       setShowSavedAddresses(false);
-    } else {
-      setShowSavedDeliveryAddresses(false);
     }
   };
 
@@ -792,7 +821,41 @@ const CreateShipment = () => {
                       <h3>Pickup Address</h3>
                       <div style={styles.addressInstructions}>
                         <p>Enter the pickup address details below.</p>
+                        {savedPickupAddresses.length > 0 && (
+                          <button
+                            type="button"
+                            className="use-saved-address-button"
+                            onClick={() => setShowSavedAddresses(!showSavedAddresses)}
+                          >
+                            <i className="fas fa-address-book"></i> Use Saved Address
+                          </button>
+                        )}
                       </div>
+                      
+                      {showSavedAddresses && (
+                        <div className="saved-addresses-dropdown">
+                          <h4>Select a Saved Address</h4>
+                          <div className="saved-addresses-list">
+                            {savedPickupAddresses.map(address => (
+                              <div 
+                                key={address.id} 
+                                className="saved-address-item"
+                                onClick={() => applySavedAddress(address, formikProps, 'pickup')}
+                              >
+                                <div className="address-name">{address.address_name}</div>
+                                <div className="address-details">
+                                  <div>{address.address}</div>
+                                  <div>{address.city}, {address.province} {address.postal_code}</div>
+                                </div>
+                                {address.is_default && (
+                                  <span className="default-badge">Default</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div style={styles.addressContainer}>
                         <div className="form-group">
                           <label htmlFor="pickup_address">Street Address</label>
@@ -922,8 +985,11 @@ const CreateShipment = () => {
                             handleFieldChange('save_pickup_address', e.target.checked);
                           }}
                         />
-                        <span className="checkbox-text">Save this address for future shipments</span>
+                        <span className="checkbox-text">Save this address to my pickup addresses</span>
                       </label>
+                      <div className="checkbox-help-text">
+                        This will save the address for future shipments. You can select it from the dropdown next time.
+                      </div>
                     </div>
                     
                     <div className="step-actions">

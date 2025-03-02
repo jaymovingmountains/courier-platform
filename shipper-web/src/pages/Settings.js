@@ -1,10 +1,10 @@
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import React, { useState } from 'react';
 import axios from 'axios';
 import './Settings.css';
 
 const Settings = () => {
-  const { user } = useContext(AuthContext);
+  // User will be used in future implementation for personalized settings
+  // const { user } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);

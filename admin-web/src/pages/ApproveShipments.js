@@ -6,6 +6,7 @@ const ApproveShipments = () => {
   const [shipments, setShipments] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [processingId, setProcessingId] = useState(null);
@@ -75,17 +76,51 @@ const ApproveShipments = () => {
   };
 
   useEffect(() => {
-    const fetchAllData = async () => {
-      setLoading(true);
-      await Promise.all([
-        fetchShipments(),
-        fetchDrivers(),
-        fetchVehicles()
-      ]);
-      setLoading(false);
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
+        
+        // Fetch shipments, drivers and vehicles
+        const [shipmentsRes, usersRes, vehiclesRes] = await Promise.all([
+          axios.get('http://localhost:3001/shipments', { headers }),
+          axios.get('http://localhost:3001/users', { headers }),
+          axios.get('http://localhost:3001/vehicles', { headers })
+        ]);
+        
+        // Filter for quoted shipments
+        const quotedShipments = shipmentsRes.data.filter(shipment => shipment.status === 'quoted');
+        setShipments(quotedShipments);
+        
+        // Filter for drivers
+        const driversArr = usersRes.data.filter(user => user.role === 'driver');
+        setDrivers(driversArr);
+        
+        // Store all users for shipper lookup
+        setUsers(usersRes.data);
+        
+        setVehicles(vehiclesRes.data);
+        
+        // Initialize selections state for each shipment
+        const initialSelections = {};
+        quotedShipments.forEach(shipment => {
+          initialSelections[shipment.id] = {
+            driver_id: '',
+            vehicle_id: ''
+          };
+        });
+        setSelections(initialSelections);
+        
+        setError(null);
+      } catch (err) {
+        setError('Failed to fetch data. Please try again.');
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
     };
-    
-    fetchAllData();
+
+    fetchData();
   }, []);
 
   const handleSelectionChange = (shipmentId, field, value) => {
@@ -199,6 +234,18 @@ const ApproveShipments = () => {
                 <div className="detail-group">
                   <label className="block text-sm font-medium text-gray-600 mb-1">Type</label>
                   <div className="text-gray-800 bg-gray-50 px-3 py-2 rounded-md">{shipment.shipment_type || 'Standard'}</div>
+                </div>
+                
+                <div className="detail-group">
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Shipper</label>
+                  <div className="text-gray-800 bg-gray-50 px-3 py-2 rounded-md">
+                    {(() => {
+                      const shipper = users.find(u => u.id === shipment.shipper_id);
+                      return shipper 
+                        ? `${shipper.name || shipper.username} (ID: ${shipper.id})` 
+                        : `Shipper #${shipment.shipper_id}`;
+                    })()}
+                  </div>
                 </div>
                 
                 <div className="detail-group">

@@ -71,9 +71,17 @@ export const handleApiError = (error, options = {}) => {
  */
 export const getAuthConfig = (options = {}) => {
   const token = localStorage.getItem('token');
+  
+  if (!token) {
+    console.warn('No authentication token found in localStorage!');
+  } else {
+    console.log('Using token for auth request:', token.substring(0, 10) + '...');
+  }
+  
   return {
     headers: {
-      Authorization: `Bearer ${token}`,
+      'Authorization': `Bearer ${token || ''}`,
+      'Content-Type': 'application/json',
       ...options.headers
     },
     ...options

@@ -4,8 +4,10 @@ import axios from 'axios';
 import './Dashboard.css';
 import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
 import ErrorMessage from '../components/ErrorMessage';
+import { useAuth } from '../hooks/useAuth';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -152,7 +154,11 @@ const Dashboard = () => {
       {/* Welcome Section */}
       <div className="welcome-section">
         <div className="welcome-content">
-          <h1>Welcome to your Shipment Dashboard</h1>
+          <h1>
+            {user && user.name 
+              ? `Welcome, ${user.name}`
+              : 'Welcome to your Shipment Dashboard'}
+          </h1>
           <p>Track, manage, and create shipments all in one place</p>
         </div>
         <div className="dashboard-actions">
