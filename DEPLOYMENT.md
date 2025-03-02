@@ -139,6 +139,36 @@ After deployment, regularly check:
 
 ## Updating Frontend Applications
 
+### Local Development with Deployed Backend
+
+If you want to continue developing frontend applications locally while using the deployed backend:
+
+1. Create or update the `.env.development` file in your frontend projects:
+
+   For shipper-web:
+   ```
+   # shipper-web/.env.development
+   REACT_APP_API_URL=https://courier-platform-backend.onrender.com
+   ```
+
+   For admin-web:
+   ```
+   # admin-web/.env.development
+   REACT_APP_API_URL=https://courier-platform-backend.onrender.com
+   ```
+
+2. Make sure your Render deployment has CORS configured to allow requests from localhost:
+   - The CORS_ORIGIN environment variable should include: 
+     `http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003`
+   - This is already configured in the render.yaml file
+
+3. Start your frontend applications normally with:
+   ```
+   npm start
+   ```
+
+4. Your local frontend will now connect to the production backend on Render
+
 ### Shipper Web Application
 
 After deploying the backend, you'll need to update the shipper-web application:
