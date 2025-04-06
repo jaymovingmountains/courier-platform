@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Dashboard.css';
 import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
+import { API_URL } from '../utils/api';
 import ErrorMessage from '../components/ErrorMessage';
+import ApiDiagnostic from '../components/ApiDiagnostic';
 import { useAuth } from '../hooks/useAuth';
 
 const Dashboard = () => {
@@ -26,7 +28,7 @@ const Dashboard = () => {
       setLoading(true);
       
       console.log('Fetching shipments from API...');
-      const response = await axios.get('http://localhost:3001/shipments', getAuthConfig());
+      const response = await axios.get(`${API_URL}/shipments`, getAuthConfig());
       
       console.log(`Successfully fetched ${response.data.length} shipments`);
       setShipments(response.data);
@@ -180,12 +182,15 @@ const Dashboard = () => {
       </div>
 
       {error && (
-        <ErrorMessage 
-          message={error}
-          onRetry={fetchShipments}
-          onDismiss={() => setError(null)}
-          variant="error"
-        />
+        <>
+          <ErrorMessage 
+            message={error}
+            onRetry={fetchShipments}
+            onDismiss={() => setError(null)}
+            variant="error"
+          />
+          <ApiDiagnostic />
+        </>
       )}
 
       {/* Stats Cards */}

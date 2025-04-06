@@ -4,7 +4,9 @@ import axios from 'axios';
 import './ViewShipment.css';
 import ShippingLabel from '../components/ShippingLabel';
 import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
+import { API_URL } from '../utils/api';
 import ErrorMessage from '../components/ErrorMessage';
+import ApiDiagnostic from '../components/ApiDiagnostic';
 
 const ViewShipment = () => {
   const { id } = useParams();
@@ -17,7 +19,7 @@ const ViewShipment = () => {
   const fetchShipment = useCallback(async () => {
     try {
       setLoading(true);
-      const endpoint = `http://localhost:3001/shipments/${id}`;
+      const endpoint = `${API_URL}/shipments/${id}`;
       
       console.log(`Fetching shipment details for ID: ${id}`);
       const response = await axios.get(endpoint, getAuthConfig());
@@ -46,7 +48,7 @@ const ViewShipment = () => {
   const handlePrintLabel = () => {
     try {
       const token = localStorage.getItem('token');
-      const endpoint = `http://localhost:3001/shipments/${id}/label?token=${token}`;
+      const endpoint = `${API_URL}/shipments/${id}/label?token=${token}`;
       
       console.log(`Opening print label in new window for shipment #${id}`);
       window.open(endpoint, '_blank');
@@ -81,6 +83,7 @@ const ViewShipment = () => {
           onRetry={fetchShipment}
           variant="error" 
         />
+        <ApiDiagnostic />
         <button
           className="back-button"
           onClick={() => navigate('/dashboard')}

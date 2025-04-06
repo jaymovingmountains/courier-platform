@@ -5,6 +5,8 @@ import * as Yup from 'yup';
 import axios from 'axios';
 import { FaBox, FaTruck, FaRocket, FaMapMarkerAlt, FaRegCalendarAlt, FaBoxOpen, FaWeightHanging, FaCheckCircle, FaAngleLeft, FaAngleRight } from 'react-icons/fa';
 import './CreateShipment.css';
+import { API_URL, getAuthConfig } from '../utils/api';
+import ApiDiagnostic from '../components/ApiDiagnostic';
 
 // Constants
 // const GEOAPIFY_API_KEY = process.env.REACT_APP_GEOAPIFY_API_KEY || '827b47a2fafa4abdbd69f3073195aedf';
@@ -165,7 +167,7 @@ const CreateShipment = () => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get(
-          'http://localhost:3001/clients',
+          `${API_URL}/clients`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -187,7 +189,7 @@ const CreateShipment = () => {
       try {
         const token = localStorage.getItem('token');
         const response = await axios.get(
-          'http://localhost:3001/addresses',
+          `${API_URL}/addresses`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -289,7 +291,7 @@ const CreateShipment = () => {
       };
       
       console.log('Token retrieved:', token ? 'Token exists' : 'No token found');
-      console.log('API endpoint:', 'http://localhost:3001/shipments');
+      console.log('API endpoint:', `${API_URL}/shipments`);
       console.log('Shipment data being sent:', shipmentData);
       
       if (!token) {
@@ -306,7 +308,7 @@ const CreateShipment = () => {
       }
       
       const response = await axios.post(
-        'http://localhost:3001/shipments',
+        `${API_URL}/shipments`,
         shipmentData,
         {
           headers: {
@@ -381,7 +383,7 @@ const CreateShipment = () => {
       };
 
       const response = await axios.post(
-        'http://localhost:3001/addresses',
+        `${API_URL}/addresses`,
         addressData,
         {
           headers: {
@@ -395,7 +397,7 @@ const CreateShipment = () => {
       
       // Refresh the saved addresses list
       const updatedAddressesResponse = await axios.get(
-        'http://localhost:3001/addresses',
+        `${API_URL}/addresses`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1223,6 +1225,13 @@ const CreateShipment = () => {
                         )}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {formik.status && (
+                  <div className="form-error-message">
+                    <p className="error-text">{formik.status}</p>
+                    <ApiDiagnostic />
                   </div>
                 )}
               </Form>
