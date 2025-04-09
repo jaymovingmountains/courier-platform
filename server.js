@@ -2841,42 +2841,86 @@ app.get('/admin/users', authorize(['admin']), async (req, res) => {
 // Admin endpoint to get dashboard data
 app.get('/admin/dashboard', authorize(['admin']), async (req, res) => {
   try {
-    // Get counts from database
+    console.log('Fetching admin dashboard data using Supabase...');
+    
+    // Get counts using Supabase queries
     const [
-      totalShipments,
-      pendingShipments,
-      activeShipments,
-      completedShipments,
-      totalDrivers,
-      totalVehicles,
-      recentShipments
+      shipmentData,
+      driverData,
+      vehicleData
     ] = await Promise.all([
-      get('SELECT COUNT(*) as count FROM shipments'),
-      get('SELECT COUNT(*) as count FROM shipments WHERE status IN ("pending", "quote_requested", "quote_provided")'),
-      get('SELECT COUNT(*) as count FROM shipments WHERE status IN ("assigned", "picked_up", "in_transit")'),
-      get('SELECT COUNT(*) as count FROM shipments WHERE status = "delivered"'),
-      get('SELECT COUNT(*) as count FROM users WHERE role = "driver"'),
-      get('SELECT COUNT(*) as count FROM vehicles'),
-      all(`SELECT 
-        s.id, s.tracking_number, s.status, s.created_at, 
-        u_shipper.name as shipper_name, 
-        u_driver.name as driver_name 
-      FROM shipments s
-      LEFT JOIN users u_shipper ON s.shipper_id = u_shipper.id
-      LEFT JOIN users u_driver ON s.driver_id = u_driver.id
-      ORDER BY s.created_at DESC LIMIT 5`)
+      // Get all shipments to count by status
+      supabase.from('shipments').select('id, status'),
+      // Count drivers
+      supabase.from('users').select('count').eq('role', 'driver'),
+      // Count vehicles
+      supabase.from('vehicles').select('count')
     ]);
+    
+    // Check for errors
+    if (shipmentData.error) {
+      console.error('Error fetching shipments data:', shipmentData.error);
+      throw shipmentData.error;
+    }
+    if (driverData.error) {
+      console.error('Error fetching driver data:', driverData.error);
+      throw driverData.error;
+    }
+    if (vehicleData.error) {
+      console.error('Error fetching vehicle data:', vehicleData.error);
+      throw vehicleData.error;
+    }
+    
+    // Calculate shipment counts by status
+    const shipments = shipmentData.data || [];
+    const pendingStatuses = ['pending', 'quote_requested', 'quote_provided'];
+    const activeStatuses = ['assigned', 'picked_up', 'in_transit'];
+    
+    const totalShipments = shipments.length;
+    const pendingShipments = shipments.filter(s => pendingStatuses.includes(s.status)).length;
+    const activeShipments = shipments.filter(s => activeStatuses.includes(s.status)).length;
+    const completedShipments = shipments.filter(s => s.status === 'delivered').length;
+    
+    // Get total drivers and vehicles
+    const totalDrivers = driverData.data?.[0]?.count || 0;
+    const totalVehicles = vehicleData.data?.[0]?.count || 0;
+    
+    // Get recent shipments with shipper and driver info
+    const { data: recentShipments, error: recentError } = await supabase
+      .from('shipments')
+      .select(`
+        id, tracking_number, status, created_at,
+        shipper:shipper_id(name),
+        driver:driver_id(name)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    
+    if (recentError) {
+      console.error('Error fetching recent shipments:', recentError);
+      throw recentError;
+    }
+    
+    // Format recent shipments response
+    const formattedRecentShipments = (recentShipments || []).map(s => ({
+      id: s.id,
+      tracking_number: s.tracking_number,
+      status: s.status,
+      created_at: s.created_at,
+      shipper_name: s.shipper?.name || null,
+      driver_name: s.driver?.name || null
+    }));
     
     res.json({
       counts: {
-        totalShipments: totalShipments.count,
-        pendingShipments: pendingShipments.count,
-        activeShipments: activeShipments.count,
-        completedShipments: completedShipments.count,
-        totalDrivers: totalDrivers.count,
-        totalVehicles: totalVehicles.count
+        totalShipments,
+        pendingShipments,
+        activeShipments,
+        completedShipments,
+        totalDrivers,
+        totalVehicles
       },
-      recentShipments
+      recentShipments: formattedRecentShipments
     });
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
