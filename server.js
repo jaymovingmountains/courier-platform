@@ -222,6 +222,7 @@ app.use(jwt({
     '/api/public-test-db',
     '/api/test-supabase',
     '/api/debug-users',
+    '/admin/setup',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
