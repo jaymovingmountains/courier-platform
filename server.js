@@ -424,8 +424,39 @@ app.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
-    // Get user from database
-    const user = await get('SELECT id, username, password, role, name FROM users WHERE username = ?', [username]);
+    // First try: Get user from database using the wrapper
+    let user = null;
+    try {
+      user = await get('SELECT id, username, password, role, name FROM users WHERE username = ?', [username]);
+      console.log('DB wrapper user lookup result:', user ? 'User found' : 'User not found');
+    } catch (dbError) {
+      console.error('Error in database wrapper lookup:', dbError);
+      // Continue to alternative method
+    }
+    
+    // Second try: Get user directly from Supabase if wrapper failed
+    if (!user) {
+      console.log('Trying direct Supabase query...');
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, username, password, role, name')
+          .eq('username', username)
+          .limit(1)
+          .single();
+        
+        if (error) {
+          console.error('Supabase direct query error:', error);
+        } else if (data) {
+          console.log('Supabase direct query found user:', data.username);
+          user = data;
+        }
+      } catch (supabaseError) {
+        console.error('Error in Supabase direct query:', supabaseError);
+      }
+    }
+
+    // If still no user found, return error
     if (!user) {
       console.log('Login failed: User not found:', { username });
       return res.status(401).json({ error: 'Invalid username or password' });
