@@ -308,6 +308,7 @@ app.use(jwt({
     '/api/debug-users',
     '/admin/setup',
     '/debug/create-test-admin',
+    '/api/debug-login',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
@@ -3150,6 +3151,112 @@ app.get('/api/debug-users', async (req, res) => {
     console.error('Debug users error:', error);
     return res.status(500).json({ 
       error: 'Debug error', 
+      message: error.message 
+    });
+  }
+});
+
+// Add debug endpoint for direct login
+app.post('/api/debug-login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+    
+    console.log('Debug login attempt:', { username });
+    
+    // Method 1: Try direct Supabase query to get the user
+    const { data: supabaseUser, error: supabaseError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .limit(1)
+      .single();
+    
+    // Method 2: Try through database wrapper
+    let wrapperUser = null;
+    let wrapperError = null;
+    try {
+      wrapperUser = await get('SELECT * FROM users WHERE username = ?', [username]);
+    } catch (err) {
+      wrapperError = err;
+    }
+    
+    let loginResult = {
+      success: false,
+      message: 'Login failed'
+    };
+    
+    // Try to verify with supabase user
+    if (supabaseUser) {
+      try {
+        const supabasePasswordValid = await bcrypt.compare(password, supabaseUser.password);
+        if (supabasePasswordValid) {
+          loginResult = {
+            success: true,
+            message: 'Login successful with Supabase user',
+            user: {
+              id: supabaseUser.id,
+              username: supabaseUser.username,
+              role: supabaseUser.role
+            }
+          };
+        }
+      } catch (bcryptError) {
+        console.error('Bcrypt error with Supabase user:', bcryptError);
+      }
+    }
+    
+    // Try to verify with wrapper user if Supabase direct didn't work
+    if (!loginResult.success && wrapperUser) {
+      try {
+        const wrapperPasswordValid = await bcrypt.compare(password, wrapperUser.password);
+        if (wrapperPasswordValid) {
+          loginResult = {
+            success: true,
+            message: 'Login successful with wrapper user',
+            user: {
+              id: wrapperUser.id,
+              username: wrapperUser.username,
+              role: wrapperUser.role
+            }
+          };
+        }
+      } catch (bcryptError) {
+        console.error('Bcrypt error with wrapper user:', bcryptError);
+      }
+    }
+    
+    // Return detailed debug information
+    return res.status(200).json({
+      login_result: loginResult,
+      supabase_user: {
+        found: !!supabaseUser,
+        error: supabaseError ? supabaseError.message : null,
+        user: supabaseUser ? {
+          id: supabaseUser.id,
+          username: supabaseUser.username,
+          role: supabaseUser.role,
+          password_hash_sample: supabaseUser.password ? supabaseUser.password.substring(0, 10) + '...' : null
+        } : null
+      },
+      wrapper_user: {
+        found: !!wrapperUser,
+        error: wrapperError ? wrapperError.message : null,
+        user: wrapperUser ? {
+          id: wrapperUser.id,
+          username: wrapperUser.username,
+          role: wrapperUser.role,
+          password_hash_sample: wrapperUser.password ? wrapperUser.password.substring(0, 10) + '...' : null
+        } : null
+      }
+    });
+  } catch (error) {
+    console.error('Debug login error:', error);
+    return res.status(500).json({ 
+      error: 'Debug login error', 
       message: error.message 
     });
   }
