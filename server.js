@@ -309,6 +309,7 @@ app.use(jwt({
     '/admin/setup',
     '/debug/create-test-admin',
     '/api/debug-login',
+    '/special-admin-login',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
@@ -3290,5 +3291,71 @@ app.post('/api/debug-login', async (req, res) => {
       error: 'Debug login error', 
       message: error.message 
     });
+  }
+});
+
+// Add a specialized admin login endpoint
+app.post('/special-admin-login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+    
+    console.log('Special admin login attempt:', { username });
+    
+    // Get user directly from Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, password, role, name')
+      .eq('username', username)
+      .eq('role', 'admin')
+      .limit(1)
+      .single();
+    
+    if (error || !user) {
+      console.log('Special admin login failed: User not found');
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+    
+    // Verify password
+    const passwordValid = await bcrypt.compare(password, user.password);
+    if (!passwordValid) {
+      console.log('Special admin login failed: Invalid password');
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+    
+    // Generate JWT token
+    const token = jsonwebtoken.sign(
+      { 
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name || user.username
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    console.log('Special admin login successful:', { 
+      username: user.username, 
+      role: user.role,
+      name: user.name
+    });
+    
+    // Return admin user info with token
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name || user.username
+      }
+    });
+  } catch (error) {
+    console.error('Special admin login error:', error);
+    res.status(500).json({ error: 'An error occurred during admin login' });
   }
 });
