@@ -221,6 +221,7 @@ app.use(jwt({
     '/health',
     '/api/public-test-db',
     '/api/test-supabase',
+    '/api/debug-users',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
@@ -2967,6 +2968,49 @@ app.get('/api/test-supabase', async (req, res) => {
       error: 'Unexpected error', 
       message: error.message,
       stack: error.stack
+    });
+  }
+});
+
+// Add debug endpoint for user operations
+app.get('/api/debug-users', async (req, res) => {
+  try {
+    console.log('Debugging user operations...');
+    
+    // Test direct Supabase query
+    const { data: supabaseUsers, error: supabaseError } = await supabase.from('users').select('*');
+    
+    // Test SQL execute function with our database wrapper
+    let sqlUsers = null;
+    let sqlError = null;
+    try {
+      sqlUsers = await all('SELECT * FROM users LIMIT 5');
+    } catch (err) {
+      sqlError = err;
+    }
+    
+    return res.status(200).json({
+      supabase_direct: {
+        success: !supabaseError,
+        error: supabaseError ? supabaseError.message : null,
+        user_count: supabaseUsers ? supabaseUsers.length : 0,
+        sample: supabaseUsers && supabaseUsers.length > 0 ? 
+          supabaseUsers.map(u => ({ id: u.id, username: u.username, role: u.role })) : []
+      },
+      database_wrapper: {
+        success: !sqlError,
+        error: sqlError ? sqlError.message : null,
+        user_count: sqlUsers ? sqlUsers.length : 0,
+        sample: sqlUsers && sqlUsers.length > 0 ? 
+          sqlUsers.map(u => ({ id: u.id, username: u.username, role: u.role })) : []
+      }
+    });
+    
+  } catch (error) {
+    console.error('Debug users error:', error);
+    return res.status(500).json({ 
+      error: 'Debug error', 
+      message: error.message 
     });
   }
 });
