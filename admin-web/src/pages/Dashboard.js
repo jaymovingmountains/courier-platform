@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTable, useSortBy, useGlobalFilter } from 'react-table';
 import axios from 'axios';
+import { API_URL } from '../utils/api';
 import './Dashboard.css';
 import ShipmentModal from '../components/ShipmentModal';
 
@@ -16,18 +17,17 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('token');
-        const headers = {
-          Authorization: `Bearer ${token}`,
-        };
-
-        // Fetch shipments, users and vehicles data
+        const headers = { Authorization: `Bearer ${token}` };
+        
+        // Use API_URL instead of hardcoded localhost
         const [shipmentsRes, usersRes, vehiclesRes] = await Promise.all([
-          axios.get('http://localhost:3001/shipments', { headers }),
-          axios.get('http://localhost:3001/users', { headers }),
-          axios.get('http://localhost:3001/vehicles', { headers })
+          axios.get(`${API_URL}/shipments`, { headers }),
+          axios.get(`${API_URL}/users`, { headers }),
+          axios.get(`${API_URL}/vehicles`, { headers })
         ]);
 
         setShipments(shipmentsRes.data);
@@ -42,7 +42,7 @@ const Dashboard = () => {
       }
     };
 
-    fetchData();
+    fetchDashboardData();
   }, []);
 
   // Open modal with shipment details
@@ -58,38 +58,10 @@ const Dashboard = () => {
   };
 
   // Handle printing shipping label
-  const handlePrintLabel = async (shipmentId) => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Get the shipping label PDF
-      const response = await axios.get(
-        `http://localhost:3001/shipments/${shipmentId}/label`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          responseType: 'blob', // Important for handling PDF data
-        }
-      );
-      
-      // Create a blob URL for the PDF
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      
-      // Open the PDF in a new tab
-      const printWindow = window.open(url, '_blank');
-      
-      // Trigger print dialog when PDF is loaded
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          printWindow.print();
-        });
-      }
-    } catch (err) {
-      console.error('Error printing shipping label:', err);
-      alert('Failed to print shipping label. Please try again.');
-    }
+  const handlePrintLabel = (shipmentId) => {
+    // Use API_URL instead of hardcoded localhost
+    const labelUrl = `${API_URL}/shipments/${shipmentId}/label`;
+    window.open(labelUrl, '_blank');
   };
 
   // Calculate statistics

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../utils/api';
 import './ApproveShipments.css';
 
 const ApproveShipments = () => {
@@ -15,8 +16,9 @@ const ApproveShipments = () => {
 
   const fetchShipments = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/shipments', {
+      const response = await axios.get(`${API_URL}/shipments`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -42,9 +44,9 @@ const ApproveShipments = () => {
         
         // Fetch shipments, drivers and vehicles
         const [shipmentsRes, usersRes, vehiclesRes] = await Promise.all([
-          axios.get('http://localhost:3001/shipments', { headers }),
-          axios.get('http://localhost:3001/users', { headers }),
-          axios.get('http://localhost:3001/vehicles', { headers })
+          axios.get(`${API_URL}/shipments`, { headers }),
+          axios.get(`${API_URL}/users`, { headers }),
+          axios.get(`${API_URL}/vehicles`, { headers })
         ]);
         
         // Filter for quoted shipments
@@ -104,7 +106,7 @@ const ApproveShipments = () => {
       setProcessingId(shipmentId);
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:3001/shipments/${shipmentId}/approve`,
+        `${API_URL}/shipments/${shipmentId}/approve`,
         {
           driver_id: parseInt(shipmentSelections.driver_id),
           vehicle_id: parseInt(shipmentSelections.vehicle_id)

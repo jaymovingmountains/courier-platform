@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { API_URL } from '../utils/api';
 import './ShipmentModal.css';
 
 const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles = [] }) => {
@@ -45,18 +46,8 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
   const shipper = getShipperDetails();
 
   // Handle generating and viewing invoice
-  const handleViewInvoice = () => {
-    if (!shipment.id) return;
-    
-    // Get the token
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Authentication required to view invoice');
-      return;
-    }
-    
-    // Open the invoice in a new tab
-    const invoiceUrl = `http://localhost:3001/shipments/${shipment.id}/invoice`;
+  const handlePrintInvoice = () => {
+    const invoiceUrl = `${API_URL}/shipments/${shipment.id}/invoice`;
     window.open(invoiceUrl, '_blank');
   };
 
@@ -187,7 +178,7 @@ const ShipmentModal = ({ shipment, onClose, onPrintLabel, users = [], vehicles =
               <i className="fas fa-print"></i> Print Label
             </button>
             {['picked_up', 'in_transit', 'delivered'].includes(shipment.status) && (
-              <button className="action-button invoice" onClick={handleViewInvoice}>
+              <button className="action-button invoice" onClick={handlePrintInvoice}>
                 <i className="fas fa-file-invoice-dollar"></i> View Invoice
               </button>
             )}

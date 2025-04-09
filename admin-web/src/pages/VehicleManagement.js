@@ -4,6 +4,7 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import * as Yup from 'yup';
 import axios from 'axios';
 import './VehicleManagement.css';
+import { API_URL } from '../utils/api';
 
 // Validation schema for vehicle form
 const vehicleSchema = Yup.object().shape({
@@ -29,7 +30,7 @@ const VehicleManagement = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/vehicles', {
+      const response = await axios.get(`${API_URL}/vehicles`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -62,18 +63,20 @@ const VehicleManagement = () => {
   const handleCreateVehicle = async (values, { setSubmitting, resetForm }) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:3001/vehicles', values, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      setSuccessMessage('Vehicle created successfully!');
-      resetForm();
+      await axios.post(
+        `${API_URL}/vehicles`,
+        values,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      await fetchVehicles();
       setShowAddForm(false);
-      fetchVehicles();
+      resetForm();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create vehicle. Please try again.');
+      setError('Failed to create vehicle. Please try again.');
       console.error('Error creating vehicle:', err);
     } finally {
       setSubmitting(false);
@@ -84,17 +87,19 @@ const VehicleManagement = () => {
   const handleUpdateVehicle = async (values, { setSubmitting }) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:3001/vehicles/${editingVehicle.id}`, values, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      setSuccessMessage('Vehicle updated successfully!');
+      await axios.put(
+        `${API_URL}/vehicles/${editingVehicle.id}`,
+        values,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      await fetchVehicles();
       setEditingVehicle(null);
-      fetchVehicles();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update vehicle. Please try again.');
+      setError('Failed to update vehicle. Please try again.');
       console.error('Error updating vehicle:', err);
     } finally {
       setSubmitting(false);
@@ -103,19 +108,22 @@ const VehicleManagement = () => {
 
   // Handle deleting a vehicle
   const handleDeleteVehicle = async () => {
+    if (!deletingVehicle) return;
+
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:3001/vehicles/${deletingVehicle.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
-      setSuccessMessage('Vehicle deleted successfully!');
+      await axios.delete(
+        `${API_URL}/vehicles/${deletingVehicle.id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      await fetchVehicles();
       setDeletingVehicle(null);
-      fetchVehicles();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete vehicle. Please try again.');
+      setError('Failed to delete vehicle. Please try again.');
       console.error('Error deleting vehicle:', err);
     }
   };

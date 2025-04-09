@@ -1,10 +1,11 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { Formik, Form, Field } from 'formik';
 import { useNavigate, Navigate } from 'react-router-dom';
 import * as Yup from 'yup';
 import axios from 'axios';
 import { AuthContext } from '../App';
 import './Login.css';
+import { API_URL } from '../utils/api';
 
 const loginSchema = Yup.object().shape({
   username: Yup.string()
@@ -18,6 +19,8 @@ const loginSchema = Yup.object().shape({
 const Login = () => {
   const navigate = useNavigate();
   const { isAuthenticated, login } = useContext(AuthContext);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState(null);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -26,7 +29,10 @@ const Login = () => {
 
   const handleLogin = async (values, { setSubmitting, setFieldError, setStatus }) => {
     try {
-      const response = await axios.post('http://localhost:3001/login', values);
+      setIsLoading(true);
+      setLoginError(null);
+      
+      const response = await axios.post(`${API_URL}/login`, values);
       const { token } = response.data;
       
       // Decode JWT to verify admin role
@@ -51,6 +57,7 @@ const Login = () => {
       console.error('Login error:', error);
     } finally {
       setSubmitting(false);
+      setIsLoading(false);
     }
   };
 
@@ -107,9 +114,9 @@ const Login = () => {
               <button
                 type="submit"
                 className="login-button"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isLoading}
               >
-                {isSubmitting ? 'Logging in...' : 'Login'}
+                {isLoading ? 'Logging in...' : 'Login'}
               </button>
             </Form>
           )}

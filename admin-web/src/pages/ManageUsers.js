@@ -5,6 +5,7 @@ import * as Yup from 'yup';
 import axios from 'axios';
 import './ManageUsers.css';
 import { Link } from 'react-router-dom';
+import { API_URL } from '../utils/api';
 
 const userSchema = Yup.object().shape({
   username: Yup.string()
@@ -31,8 +32,9 @@ const ManageUsers = () => {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/users', {
+      const response = await axios.get(`${API_URL}/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -55,7 +57,7 @@ const ManageUsers = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(
-        'http://localhost:3001/register',
+        `${API_URL}/register`,
         values,
         {
           headers: {
@@ -78,7 +80,7 @@ const ManageUsers = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:3001/users/${editingUser.id}`,
+        `${API_URL}/users/${editingUser.id}`,
         values,
         {
           headers: {
@@ -102,7 +104,7 @@ const ManageUsers = () => {
     try {
       const token = localStorage.getItem('token');
       await axios.delete(
-        `http://localhost:3001/users/${deletingUser.id}`,
+        `${API_URL}/users/${deletingUser.id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

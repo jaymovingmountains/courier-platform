@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import axios from 'axios';
+import { API_URL } from '../utils/api';
 import './ProvideQuotes.css';
 import ShipmentModal from '../components/ShipmentModal';
 import { useParams } from 'react-router-dom';
@@ -28,7 +29,7 @@ const ProvideQuotes = () => {
   const fetchQuoteHistory = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/shipments', {
+      const response = await axios.get(`${API_URL}/shipments`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -53,9 +54,9 @@ const ProvideQuotes = () => {
         
         // Fetch pending shipments (for quotes) and recently quoted ones (for history)
         const [pendingRes, quotedRes, usersRes] = await Promise.all([
-          axios.get('http://localhost:3001/shipments?status=pending', { headers }),
-          axios.get('http://localhost:3001/shipments?status=quoted', { headers }),
-          axios.get('http://localhost:3001/users', { headers })
+          axios.get(`${API_URL}/shipments?status=pending`, { headers }),
+          axios.get(`${API_URL}/shipments?status=quoted`, { headers }),
+          axios.get(`${API_URL}/users`, { headers })
         ]);
         
         setShipments(pendingRes.data);
@@ -79,7 +80,7 @@ const ProvideQuotes = () => {
       setProcessingId(shipmentId);
       const token = localStorage.getItem('token');
       await axios.put(
-        `http://localhost:3001/shipments/${shipmentId}/quote`,
+        `${API_URL}/shipments/${shipmentId}/quote`,
         { quote_amount: parseFloat(values.quote_amount) },
         {
           headers: {
@@ -148,7 +149,7 @@ const ProvideQuotes = () => {
       
       // Get the shipping label PDF
       const response = await axios.get(
-        `http://localhost:3001/shipments/${shipmentId}/label`,
+        `${API_URL}/shipments/${shipmentId}/label`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

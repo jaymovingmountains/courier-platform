@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { API_URL } from '../utils/api';
 import './ShipperManagement.css';
 
 const ShipperManagement = () => {
@@ -17,32 +18,32 @@ const ShipperManagement = () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('token');
+        const headers = { Authorization: `Bearer ${token}` };
         
-        // Fetch shipper details
-        const shipperResponse = await axios.get(`http://localhost:3001/users/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+        // Use API_URL instead of hardcoded localhost
+        const shipperResponse = await axios.get(`${API_URL}/users/${id}`, {
+          headers
         });
         
         setShipper(shipperResponse.data);
         
         // Fetch shipper's clients
-        const clientsResponse = await axios.get(`http://localhost:3001/admin/shippers/${id}/clients`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const clientsResponse = await axios.get(`${API_URL}/admin/shippers/${id}/clients`, {
+          headers
         });
         
-        setClients(clientsResponse.data);
+        setClients(clientsResponse.data || []);
         
         // Fetch shipper's saved addresses
-        const addressesResponse = await axios.get(`http://localhost:3001/admin/shippers/${id}/addresses`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const addressesResponse = await axios.get(`${API_URL}/admin/shippers/${id}/addresses`, {
+          headers
         });
         
-        setAddresses(addressesResponse.data);
+        setAddresses(addressesResponse.data || []);
         setError(null);
-      } catch (err) {
-        console.error('Error fetching shipper data:', err);
-        setError('Failed to load shipper data. Please try again.');
-      } finally {
+      } catch (error) {
+        console.error('Error fetching shipper data:', error);
+        setError('Failed to load shipper data');
         setLoading(false);
       }
     };
