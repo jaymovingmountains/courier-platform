@@ -4,7 +4,7 @@
 import axios from 'axios';
 
 // Get the API URL from environment variables
-export const API_URL = process.env.REACT_APP_API_URL || 'https://courier-platform-backend.onrender.com';
+export const API_URL = process.env.REACT_APP_API_URL || 'https://mml-platform-tau.vercel.app';
 
 /**
  * Create an axios instance with default configuration
