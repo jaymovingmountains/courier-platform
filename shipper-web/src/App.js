@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -15,339 +15,116 @@ import NotificationsPage from './pages/NotificationsPage';
 import SavedAddresses from './pages/SavedAddresses';
 import './App.css';
 import Navigation from './components/Navigation';
-import { AuthContext } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import withAuth from './components/withAuth';
 
+// Apply withAuth HOC to protected pages
+const ProtectedDashboard = withAuth(Dashboard);
+const ProtectedCreateShipment = withAuth(CreateShipment);
+const ProtectedManageClients = withAuth(ManageClients);
+const ProtectedTrackShipments = withAuth(TrackShipments);
+const ProtectedViewShipment = withAuth(ViewShipment);
+const ProtectedManageUsers = withAuth(ManageUsers, { requiredRoles: ['shipper_admin'] });
+const ProtectedProfile = withAuth(Profile);
+const ProtectedSettings = withAuth(Settings);
+const ProtectedInvoices = withAuth(Invoices);
+const ProtectedNotifications = withAuth(NotificationsPage);
+const ProtectedSavedAddresses = withAuth(SavedAddresses);
+
+/**
+ * Main application layout with navigation
+ */
+const AppLayout = ({ children }) => {
+  const { isAuthenticated } = useAuth();
+  
+  return (
+    <>
+      {isAuthenticated && <Navigation />}
+      <div className="content">
+        {children}
+      </div>
+    </>
+  );
+};
+
+/**
+ * Main App component with routes
+ */
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  return (
+    <AuthProvider>
+      <Router>
+        <div className="App">
+          <AppLayout>
+            <Routes>
+              {/* Public routes */}
+              <Route 
+                path="/login" 
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                } 
+              />
 
-  const login = (token) => {
-    try {
-      // Decode JWT to get user role
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const payload = JSON.parse(window.atob(base64));
-      
-      localStorage.setItem('token', token);
-      setUser({ 
-        id: payload.id,
-        role: payload.role,
-        username: payload.username || 'User',
-        name: payload.name || payload.username || 'User',
-        email: payload.email || ''
-      });
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Error in login function:', error);
-      alert('There was an error processing your login. Please try again.');
-    }
-  };
+              <Route path="/help" element={<Help />} />
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setIsAuthenticated(false);
-  };
+              {/* Protected routes */}
+              <Route path="/dashboard" element={<ProtectedDashboard />} />
+              <Route path="/create-shipment" element={<ProtectedCreateShipment />} />
+              <Route path="/manage-clients" element={<ProtectedManageClients />} />
+              <Route path="/track-shipments" element={<ProtectedTrackShipments />} />
+              <Route path="/view-shipment/:id" element={<ProtectedViewShipment />} />
+              <Route path="/manage-users" element={<ProtectedManageUsers />} />
+              <Route path="/profile" element={<ProtectedProfile />} />
+              <Route path="/settings" element={<ProtectedSettings />} />
+              <Route path="/invoices" element={<ProtectedInvoices />} />
+              <Route path="/notifications" element={<ProtectedNotifications />} />
+              <Route path="/saved-addresses" element={<ProtectedSavedAddresses />} />
 
-  // Check for token on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      // Add artificial delay for smooth preloader animation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          // Basic validation of token
-          const base64Url = token.split('.')[1];
-          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-          const payload = JSON.parse(window.atob(base64));
-          
-          if (payload && payload.exp * 1000 > Date.now()) {
-            setUser({ 
-              id: payload.id,
-              role: payload.role,
-              username: payload.username || 'User',
-              name: payload.name || payload.username || 'User',
-              email: payload.email || ''
-            });
-            setIsAuthenticated(true);
-          } else {
-            logout();
-          }
-        } catch (e) {
-          logout();
-        }
-      }
-      setIsLoading(false);
-    };
-    
-    checkAuth();
-  }, []);
+              {/* Default route */}
+              <Route 
+                path="/" 
+                element={<Navigate to="/dashboard" replace />} 
+              />
 
-  // Protected Route wrapper
-  const ProtectedRoute = ({ children, roles }) => {
-    if (!isAuthenticated) {
-      return <Navigate to="/login" />;
-    }
-
-    if (roles && !roles.includes(user?.role)) {
-      return <Navigate to="/dashboard" />;
-    }
-
-    return children;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="preloader">
-        <div className="loader">
-          <div className="loader-logo">
-            <i className="fas fa-truck-fast"></i>
-          </div>
+              {/* Catch-all route for 404 */}
+              <Route 
+                path="*" 
+                element={
+                  <div className="not-found">
+                    <h1>404</h1>
+                    <h2>Page Not Found</h2>
+                    <p>The page you are looking for does not exist or has been moved.</p>
+                  </div>
+                } 
+              />
+            </Routes>
+          </AppLayout>
         </div>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+/**
+ * Public route component to redirect authenticated users
+ */
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p>Loading application...</p>
       </div>
     );
   }
-
-  return (
-    <AuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
-      <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Dashboard />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Dashboard />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/shipments"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <TrackShipments />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/shipments/new"
-              element={
-                <ProtectedRoute roles={['shipper']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <CreateShipment />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/create-shipment"
-              element={
-                <ProtectedRoute roles={['shipper']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <CreateShipment />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/manage-clients"
-              element={
-                <ProtectedRoute roles={['shipper']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <ManageClients />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/invoices"
-              element={
-                <ProtectedRoute roles={['shipper']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Invoices />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/track-shipments"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <TrackShipments />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/shipments/:id"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <ViewShipment />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/users"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <ManageUsers />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/manage-users"
-              element={
-                <ProtectedRoute roles={['admin']}>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <ManageUsers />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Profile />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Settings />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/help"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <Help />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/notifications"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <NotificationsPage />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/saved-addresses"
-              element={
-                <ProtectedRoute>
-                  <div className="app-container">
-                    <Navigation />
-                    <div className="content">
-                      <SavedAddresses />
-                    </div>
-                  </div>
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route path="*" element={<Navigate to={isAuthenticated ? "/" : "/login"} />} />
-          </Routes>
-        </div>
-      </Router>
-    </AuthContext.Provider>
-  );
-}
+  
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : children;
+};
 
 export default App;

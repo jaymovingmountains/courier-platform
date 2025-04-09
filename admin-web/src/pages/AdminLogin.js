@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/images/moving-mountains-logo.png';
+import { isAuthenticated, API_URL } from '../utils/api';
+import AdminService from '../services/AdminService';
+import { AuthContext } from '../App';
 
 /**
  * AdminLogin component for the Admin Portal
@@ -8,9 +11,20 @@ import logo from '../assets/images/moving-mountains-logo.png';
  */
 const AdminLogin = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useContext(AuthContext);
   const [credentials, setCredentials] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if user is already authenticated on component mount
+  useEffect(() => {
+    if (isAuthenticated()) {
+      // Redirect to the page they were trying to access, or dashboard
+      const from = location.state?.from?.pathname || '/admin/dashboard';
+      navigate(from);
+    }
+  }, [navigate, location]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -23,35 +37,30 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
-      // In a real app, make an API call to authenticate
-      const response = await fetch('http://localhost:3001/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-portal': 'admin' // Specify admin portal
-        },
-        body: JSON.stringify(credentials)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      // Store the token
-      localStorage.setItem('token', data.token);
+      // Use AdminService for login - no need to store result as we use localStorage
+      await AdminService.login(credentials.username, credentials.password);
       
-      // Mock user data for example
-      localStorage.setItem('admin-user', JSON.stringify({
-        username: credentials.username,
-        role: 'admin'
-      }));
-
-      // Redirect to admin dashboard
-      navigate('/admin/dashboard');
+      // Get user data from token
+      const userStr = localStorage.getItem('admin-user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        
+        // Update auth context
+        login(userData);
+        
+        // Redirect to the page they were trying to access, or dashboard
+        const from = location.state?.from?.pathname || '/admin/dashboard';
+        navigate(from);
+      } else {
+        throw new Error('Failed to get user data from login response');
+      }
     } catch (error) {
-      setError(error.message);
+      // Extract error message
+      if (error.response && error.response.data) {
+        setError(error.response.data.error || 'Authentication failed');
+      } else {
+        setError(error.message || 'Authentication failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +76,9 @@ const AdminLogin = () => {
             style={{ maxWidth: '220px', marginBottom: '20px' }}
           />
           <h2 className="mb-4">Admin Portal</h2>
+          <p className="text-muted">
+            <small>Connected to: {API_URL}</small>
+          </p>
         </div>
 
         {error && (
@@ -87,6 +99,8 @@ const AdminLogin = () => {
               onChange={handleChange}
               placeholder="Enter admin username"
               required
+              autoFocus
+              disabled={isLoading}
             />
           </div>
 
@@ -101,13 +115,14 @@ const AdminLogin = () => {
               onChange={handleChange}
               placeholder="Enter password"
               required
+              disabled={isLoading}
             />
           </div>
 
           <button 
             type="submit" 
             className="btn btn-primary w-100" 
-            disabled={isLoading}
+            disabled={isLoading || !credentials.username || !credentials.password}
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
           </button>

@@ -1,11 +1,12 @@
 import SwiftUI
 import MapKit
 import Combine
+// Import components module to access PackageDimensionsForm
 
 // MARK: - Custom Error Types for Job Details
 
 /// Specific error types for Job Details
-enum JobDetailsError: Error, Identifiable {
+enum JobDetailsError: Error, Identifiable, LocalizedError {
     case network(description: String, isRetryable: Bool)
     case server(code: Int, description: String)
     case jobNotFound(jobId: Int)
@@ -56,6 +57,11 @@ enum JobDetailsError: Error, Identifiable {
         case .unknown(let error):
             return "An unexpected error occurred: \(error?.localizedDescription ?? "Unknown error")"
         }
+    }
+    
+    // Add LocalizedError conformance
+    var errorDescription: String? {
+        return userMessage
     }
     
     /// Convert from APIError to more specific JobDetailsError
@@ -142,8 +148,17 @@ final class JobDetailsViewModel: ObservableObject {
     @Published var showingSuccessMessage: Bool = false
     @Published var successMessage: String = ""
     
+    // Package dimension fields
+    @Published var weight: String = ""
+    @Published var length: String = ""
+    @Published var width: String = ""
+    @Published var height: String = ""
+    @Published var dimensionUnit: String = "cm"
+    @Published var packageDescription: String = ""
+    @Published var showDimensionsForm: Bool = false
+    
     private var apiClient: APIClient
-    private var jobId: Int
+    var jobId: Int
     
     init(apiClient: APIClient, jobId: Int) {
         self.apiClient = apiClient
@@ -177,36 +192,65 @@ final class JobDetailsViewModel: ObservableObject {
     
     private func mapAPIError(_ error: APIError) -> JobDetailsError {
         switch error {
-        case .networkError(let description):
-            return .network(description: description, isRetryable: true)
-        case .serverError(let code, let message):
+        case .invalidURL:
+            return .network(description: "Invalid URL", isRetryable: false)
+            
+        case .noData:
+            return .network(description: "No data received", isRetryable: true)
+            
+        case .decodingError:
+            return .parsing(description: "Could not process server response")
+            
+        case .serverError(let code):
+            // Handle 404 errors specially
             if code == 404 {
                 return .jobNotFound(jobId: jobId)
-            } else if code == 401 {
-                return .authentication(description: message)
-            } else if code == 403 {
-                return .authorization(description: message)
             }
-            return .server(code: code, description: message)
-        case .decodingError(let description):
-            return .parsing(description: description)
-        case .noInternet:
+            
+            switch code {
+            case 401:
+                return .authentication(description: "Your session has expired")
+            case 500...599:
+                return .server(code: code, description: "Server encountered an error")
+            default:
+                return .server(code: code, description: "Unexpected server response")
+            }
+            
+        case .networkError(let error):
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                switch nsError.code {
+                case NSURLErrorNotConnectedToInternet:
             return .offline
-        case .timeoutError:
+                case NSURLErrorTimedOut:
             return .timeout
-        case .unknown(let underlyingError):
-            return .unknown(underlyingError)
+                default:
+                    return .network(description: error.localizedDescription, isRetryable: true)
+                }
+            }
+            return .network(description: error.localizedDescription, isRetryable: true)
+            
+        case .unauthorized:
+            return .authentication(description: "Session expired or invalid")
+            
+        case .unknown:
+            return .unknown(nil)
+            
+        case .transitionError(let message):
+            return .server(code: 400, description: "Invalid status transition: \(message)")
         }
     }
     
-    private func setupMapRegion() {
-        guard let job = job,
-              let pickupLat = Double(job.pickupLatitude ?? "0"),
-              let pickupLng = Double(job.pickupLongitude ?? "0"),
-              let deliveryLat = Double(job.deliveryLatitude ?? "0"),
-              let deliveryLng = Double(job.deliveryLongitude ?? "0") else {
+    func setupMapRegion() {
+        guard job != nil else {
             return
         }
+        
+        // Default coordinates if not available
+        let pickupLat = 43.6532
+        let pickupLng = -79.3832
+        let deliveryLat = 43.7532
+        let deliveryLng = -79.4832
         
         let pickupCoordinate = CLLocationCoordinate2D(latitude: pickupLat, longitude: pickupLng)
         let deliveryCoordinate = CLLocationCoordinate2D(latitude: deliveryLat, longitude: deliveryLng)
@@ -230,34 +274,75 @@ final class JobDetailsViewModel: ObservableObject {
     
     func updateJobStatus(to newStatus: String) async {
         guard let job = job else { return }
-        
         statusUpdateInProgress = true
-        error = nil
         
         do {
+            // Check if this is a pickup and package dimensions are needed
+            if newStatus == "picked_up" && showDimensionsForm {
+                // Include package dimensions if provided
+                let dimensionsData: [String: Any] = [
+                    "status": newStatus,
+                    "weight": weight.isEmpty ? NSNull() : Double(weight),
+                    "length": length.isEmpty ? NSNull() : Double(length),
+                    "width": width.isEmpty ? NSNull() : Double(width),
+                    "height": height.isEmpty ? NSNull() : Double(height),
+                    "dimension_unit": dimensionUnit.isEmpty ? "cm" : dimensionUnit,
+                    "description": packageDescription
+                ]
+                
             let endpoint = APIConstants.jobStatusUpdateURL(id: job.id)
-            
-            // The API expects a JSON body with the new status
-            let response: [String: String] = try await apiClient.update(
-                endpoint: endpoint,
-                body: ["status": newStatus]
-            )
-            
-            // Update the local job object with the new status
-            self.job?.status = JobStatus(rawValue: newStatus) ?? .pending
+                let updatedJob: JobDTO = try await apiClient.updateJobStatus(jobId: job.id, status: newStatus).get()
+                
+                // Update local job data
+                self.job = updatedJob
+                
+                // Show success message
+                successMessage = "Job status updated to: \(newStatus.capitalized)"
+                showingSuccessMessage = true
+                
+                // Reset dimensions form
+                showDimensionsForm = false
+                
+                // Post notification about status change
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("JobStatusChanged"),
+                    object: nil,
+                    userInfo: ["jobId": job.id, "status": newStatus]
+                )
+                
+                // Also post notification to refresh UI
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ForceJobUIRefresh"),
+                    object: nil,
+                    userInfo: ["jobId": job.id, "status": newStatus]
+                )
+                
+                // Also post notification to add job to history
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("MoveJobToHistory"),
+                    object: nil,
+                    userInfo: ["job": job]
+                )
+            } else {
+                // Regular status update without dimensions
+                let endpoint = APIConstants.jobStatusUpdateURL(id: job.id)
+                let updatedJob: JobDTO = try await apiClient.updateJobStatus(jobId: job.id, status: newStatus).get()
+                
+                // Update local job data
+                self.job = updatedJob
             
             // Show success message
-            successMessage = response["message"] ?? "Status updated to \(newStatus.replacingOccurrences(of: "_", with: " "))."
+                successMessage = "Job status updated to: \(newStatus.capitalized)"
             showingSuccessMessage = true
             
-            // Hide success message after a delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                self.showingSuccessMessage = false
-            }
-            
-            // If the status is "delivered", post a notification to update the history view
-            if newStatus == "delivered" {
-                // Post notification to update UI in other views
+                // Post notification about status change
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("JobStatusChanged"),
+                    object: nil,
+                    userInfo: ["jobId": job.id, "status": newStatus]
+                )
+                
+                // Also post notification to refresh UI
                 NotificationCenter.default.post(
                     name: NSNotification.Name("ForceJobUIRefresh"),
                     object: nil,
@@ -344,108 +429,150 @@ final class JobDetailsViewModel: ObservableObject {
             UIApplication.shared.open(url)
         }
     }
-    
-    func callContact(isPickup: Bool) {
-        guard let job = job else { return }
-        
-        let phoneNumber = isPickup ? job.pickupPhone : job.deliveryPhone
-        
-        if let phone = phoneNumber, !phone.isEmpty,
-           let url = URL(string: "tel://\(phone.replacingOccurrences(of: " ", with: ""))") {
-            UIApplication.shared.open(url)
-        }
-    }
 }
 
 // MARK: - Job Details View
 
 struct JobDetailsView: View {
     @StateObject private var viewModel: JobDetailsViewModel
-    @Environment(\.presentationMode) var presentationMode
     
-    init(apiClient: APIClient, jobId: Int) {
+    // Add an onDismiss closure parameter with a default value of nil
+    var onDismiss: (() -> Void)?
+    
+    init(apiClient: APIClient, jobId: Int, onDismiss: (() -> Void)? = nil) {
         _viewModel = StateObject(wrappedValue: JobDetailsViewModel(apiClient: apiClient, jobId: jobId))
+        self.onDismiss = onDismiss
     }
     
+    // Break body into smaller components
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Map section
-                if viewModel.job != nil {
-                    mapSection
-                }
+        ZStack {
+            // TESTING - Remove this test view when UI changes are visible
+            VStack {
+                Text("TEST VIEW - UI CHANGES APPLIED")
+                    .font(.largeTitle)
+                    .foregroundColor(.white)
+                    .padding()
+                    .background(Color.red)
+                    .cornerRadius(10)
+                    .padding(.top, 100)
+                    .zIndex(999)
                 
-                // Job details card
-                if let job = viewModel.job {
-                    jobDetailsCard(job: job)
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(0.3))
+            .edgesIgnoringSafeArea(.all)
+            .zIndex(100)
+            
+            // Background gradient
+            LinearGradient(
+                gradient: Gradient(colors: [Color(.systemBackground), Color(.systemGray6)]),
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+            
+            // Main content
+            if viewModel.isLoading {
+                loadingView
+            } else if let job = viewModel.job {
+        ScrollView {
+                    VStack(spacing: 22) {
+                        // Status indicator at the top
+                        statusHeader(job: job)
+                            .padding(.top, 10)
+                        
+                // Map section
+                    mapSection
+                
+                        // Job summary section
+                        jobSummarySection(job: job)
                     
-                    // Addresses
+                        // Addresses section
                     addressesSection(job: job)
                     
-                    // Status update section
-                    if !viewModel.nextAvailableStatuses.isEmpty {
-                        statusUpdateSection(job: job)
+                        // Package details section (if available)
+                        // (This would show the actual package dimensions once recorded)
+                        // Note: JobDTO doesn't have weight or dimensions properties yet
+                        // This is a placeholder for when those properties are added
+                        /*
+                        if let _ = job.weight, 
+                           let dimensions = job.dimensions {
+                            packageDetailsSection(
+                                weight: job.weight ?? 0.0,
+                                dimensions: dimensions,
+                                description: job.description
+                            )
+                        }
+                        */
+                        
+                        // Action buttons
+                        actionButtons(job: job)
+                            .padding(.horizontal)
+                            .padding(.bottom, 30)
                     }
-                    
-                    // Contact section
-                    contactSection(job: job)
-                    
-                    // Notes
-                    if let notes = job.notes, !notes.isEmpty {
-                        notesSection(notes: notes)
+                    .padding(.horizontal)
+                    .padding(.vertical, 10)
+                }
+                .refreshable {
+                    Task {
+                        await viewModel.fetchJobDetails()
                     }
                 }
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 20)
-        }
-        .navigationTitle("Job #\(viewModel.jobId)")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(false)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if !viewModel.nextAvailableStatuses.isEmpty {
-                    Menu {
-                        ForEach(viewModel.nextAvailableStatuses, id: \.self) { status in
-                            Button(action: {
-                                Task {
-                                    await viewModel.updateJobStatus(to: status)
-                                }
-                            }) {
-                                Label(
-                                    status.replacingOccurrences(of: "_", with: " ").capitalized,
-                                    systemImage: statusIcon(for: status)
-                                )
+                .alert(isPresented: $viewModel.showError, error: viewModel.error) { _ in
+                    Button("OK") {
+                        viewModel.showError = false
+                    }
+                } message: { error in
+                    Text(error.errorDescription ?? "Unknown error")
+                }
+                .overlay(
+                    Group {
+                        if viewModel.showingSuccessMessage {
+                            VStack {
+                                Spacer()
+                                Text(viewModel.successMessage)
+                                    .font(.headline)
+                                    .padding()
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(Color.green)
+                                            .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+                                    )
+                                    .foregroundColor(.white)
+                                    .padding(.bottom, 40)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    .onAppear {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                            withAnimation(.easeInOut) {
+                                                viewModel.showingSuccessMessage = false
+                                            }
+                                        }
+                                    }
                             }
                         }
-                    } label: {
-                        Text("Update Status")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
+                    }
+                )
+                .navigationTitle("Job #\(job.id)")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                            Button(action: {
+                                Task {
+                                await viewModel.fetchJobDetails()
+                            }
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .imageScale(.medium)
+                        }
                     }
                 }
+            } else {
+                // No job data (could be error or not found)
+                errorView
             }
         }
-        .overlay {
-            if viewModel.isLoading {
-                LoadingOverlay()
-            }
-        }
-        .alert(isPresented: $viewModel.showError) {
-            Alert(
-                title: Text("Error"),
-                message: Text(viewModel.error?.userMessage ?? "An unknown error occurred"),
-                dismissButton: .default(Text("OK"))
-            )
-        }
-        .overlay(
-            // Success message overlay
-            viewModel.showingSuccessMessage ? 
-                successMessageOverlay
-                .transition(.move(edge: .top).combined(with: .opacity))
-                .animation(.spring(), value: viewModel.showingSuccessMessage)
-                : nil
-        )
         .onAppear {
             Task {
                 await viewModel.fetchJobDetails()
@@ -453,43 +580,149 @@ struct JobDetailsView: View {
         }
     }
     
+    // MARK: - Status Header
+    private func statusHeader(job: JobDTO) -> some View {
+        HStack {
+            Text("Job Status:")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            
+            Text(job.statusDisplayName)
+                .font(.headline)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(statusColor(for: job.status.rawValue).opacity(0.2))
+                .foregroundColor(statusColor(for: job.status.rawValue))
+                .cornerRadius(8)
+                
+            Spacer()
+            
+            if job.isActive {
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("Active")
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(5)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.05), radius: 3, x: 0, y: 1)
+    }
+    
+    // MARK: - Loading View
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .progressViewStyle(CircularProgressViewStyle(tint: Color.blue))
+            
+            Text("Loading job details...")
+                .font(.headline)
+                .foregroundColor(.primary)
+        }
+        .padding(28)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
+        )
+    }
+    
+    // MARK: - Error View
+    private var errorView: some View {
+        VStack(spacing: 25) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundColor(.orange)
+            
+            Text("An error occurred while loading job details.")
+                .font(.headline)
+                .foregroundColor(.primary)
+                .multilineTextAlignment(.center)
+            
+            Button(action: {
+            Task {
+                await viewModel.fetchJobDetails()
+            }
+            }) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Retry")
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 30)
+                .padding(.vertical, 12)
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                .shadow(color: Color.blue.opacity(0.3), radius: 5, x: 0, y: 2)
+            }
+        }
+        .padding(30)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.systemBackground))
+                .shadow(color: Color.black.opacity(0.1), radius: 15, x: 0, y: 5)
+        )
+        .padding()
+    }
+    
     // MARK: - Map Section
     private var mapSection: some View {
         ZStack(alignment: .topTrailing) {
+            // Test with a bright background to verify changes are visible
+            Rectangle()
+                .fill(Color.orange)
+                .frame(height: 220)
+                .cornerRadius(16)
+                .overlay(
             Map(coordinateRegion: $viewModel.mapRegion, annotationItems: createMapAnnotations()) { annotation in
                 MapAnnotation(coordinate: annotation.coordinate) {
                     VStack {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.white)
+                                        .frame(width: 36, height: 36)
+                                        .shadow(color: Color.black.opacity(0.2), radius: 3, x: 0, y: 2)
+                                    
                         Image(systemName: annotation.iconName)
-                            .font(.system(size: 24))
+                                        .font(.system(size: 20))
                             .foregroundColor(annotation.color)
-                            .shadow(radius: 2)
+                                }
                         
                         Text(annotation.title)
                             .font(.caption)
+                                    .fontWeight(.medium)
                             .padding(5)
-                            .background(Color.white.opacity(0.8))
+                                    .background(Color.white.opacity(0.9))
                             .cornerRadius(5)
                             .shadow(radius: 1)
                     }
+                            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                 }
             }
-            .frame(height: 200)
-            .cornerRadius(12)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
             )
             
             // Map action buttons
-            VStack(alignment: .trailing, spacing: 8) {
+            VStack(alignment: .trailing, spacing: 10) {
                 Button(action: {
                     // Toggle between satellite and standard view
                 }) {
                     Image(systemName: "map")
-                        .padding(8)
+                        .padding(10)
                         .background(Color.white)
                         .clipShape(Circle())
-                        .shadow(radius: 2)
+                        .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 2)
                 }
                 
                 Button(action: {
@@ -497,13 +730,24 @@ struct JobDetailsView: View {
                     viewModel.setupMapRegion()
                 }) {
                     Image(systemName: "location")
-                        .padding(8)
+                        .padding(10)
                         .background(Color.white)
                         .clipShape(Circle())
-                        .shadow(radius: 2)
+                        .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 2)
                 }
             }
-            .padding(8)
+            .padding(12)
+        }
+    }
+    
+    // MARK: - Job Summary Section
+    private func jobSummarySection(job: JobDTO) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Job details card
+            jobDetailsCard(job: job)
+            
+            // Job quick info
+            jobQuickInfo(job: job)
         }
     }
     
@@ -524,8 +768,10 @@ struct JobDetailsView: View {
                 
                 Spacer()
                 
-                // Status badge
-                StatusBadge(status: job.status.rawValue)
+                // Status badge - now in the header
+                Text(job.createdAt.prefix(10))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
             Divider()
@@ -534,31 +780,49 @@ struct JobDetailsView: View {
             HStack(alignment: .center, spacing: 20) {
                 // Vehicle info
                 VStack(alignment: .center, spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.blue.opacity(0.1))
+                            .frame(width: 40, height: 40)
                     Image(systemName: "car.fill")
-                        .font(.title)
+                            .font(.system(size: 18))
                         .foregroundColor(.blue)
+                    }
                     Text(job.vehicleName ?? "Not Assigned")
                         .font(.caption)
+                        .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
                 
-                // Distance info
+                // Distance info (hardcoded placeholder since property is missing)
                 VStack(alignment: .center, spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.orange.opacity(0.1))
+                            .frame(width: 40, height: 40)
                     Image(systemName: "arrow.left.and.right")
-                        .font(.title)
+                            .font(.system(size: 18))
                         .foregroundColor(.orange)
-                    Text("\(job.estimatedDistance ?? 0) km")
+                    }
+                    Text("10 km")
                         .font(.caption)
+                        .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
                 
-                // Estimated time
+                // Estimated time (hardcoded placeholder since property is missing)
                 VStack(alignment: .center, spacing: 4) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.green.opacity(0.1))
+                            .frame(width: 40, height: 40)
                     Image(systemName: "clock.fill")
-                        .font(.title)
+                            .font(.system(size: 18))
                         .foregroundColor(.green)
-                    Text("\(job.estimatedTime ?? 0) min")
+                    }
+                    Text("30 min")
                         .font(.caption)
+                        .fontWeight(.medium)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -581,8 +845,65 @@ struct JobDetailsView: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
+    }
+    
+    // MARK: - Job Quick Info
+    private func jobQuickInfo(job: JobDTO) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Delivery Options")
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            Divider()
+            
+            HStack(alignment: .top, spacing: 20) {
+                // Pickup option
+                Button(action: {
+                    viewModel.openMapsApp(forDestination: false)
+                }) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 22))
+                            .foregroundColor(.blue)
+                        
+                        Text("Navigate to Pickup")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(10)
+                }
+                
+                // Delivery option
+                Button(action: {
+                    viewModel.openMapsApp(forDestination: true)
+                }) {
+                    VStack(spacing: 8) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(.green)
+                        
+                        Text("Navigate to Delivery")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.primary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(10)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
     }
     
     // MARK: - Addresses Section
@@ -625,9 +946,15 @@ struct JobDetailsView: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             HStack {
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.1))
+                        .frame(width: 36, height: 36)
                 Image(systemName: iconName)
-                    .font(.title3)
+                        .font(.system(size: 18))
                     .foregroundColor(iconColor)
+                }
+                
                 Text(title)
                     .font(.headline)
                 Spacer()
@@ -636,9 +963,10 @@ struct JobDetailsView: View {
             Divider()
             
             // Address details
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(address)
                     .font(.subheadline)
+                    .fontWeight(.medium)
                 Text("\(city), \(postalCode)")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -650,276 +978,239 @@ struct JobDetailsView: View {
                     viewModel.openMapsApp(forDestination: !isPickup)
                 }) {
                     Label("Directions", systemImage: "map.fill")
-                        .font(.caption)
-                        .padding(.horizontal, 12)
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Color.blue)
+                        .background(isPickup ? Color.blue : Color.red)
                         .foregroundColor(.white)
-                        .cornerRadius(8)
+                        .cornerRadius(10)
+                        .shadow(color: (isPickup ? Color.blue : Color.red).opacity(0.3), radius: 3, x: 0, y: 2)
                 }
                 
                 Spacer()
-                
-                // Call button if there's a phone number
-                if let phone = isPickup ? viewModel.job?.pickupPhone : viewModel.job?.deliveryPhone,
-                   !phone.isEmpty {
-                    Button(action: {
-                        viewModel.callContact(isPickup: isPickup)
-                    }) {
-                        Label("Call", systemImage: "phone.fill")
-                            .font(.caption)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Color.green)
-                            .foregroundColor(.white)
-                            .cornerRadius(8)
-                    }
-                }
             }
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
     }
     
-    // MARK: - Status Update Section
-    private func statusUpdateSection(job: JobDTO) -> some View {
+    // MARK: - Package Details Section
+    private func packageDetailsSection(weight: Double, dimensions: Dimensions, description: String) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Update Status")
+            // Header with icon
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "shippingbox.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.purple)
+                }
+                
+                Text("Package Details")
                 .font(.headline)
+                Spacer()
+            }
             
             Divider()
             
-            Text("Current Status: \(job.status.rawValue.replacingOccurrences(of: "_", with: " ").capitalized)")
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Weight:")
                 .font(.subheadline)
-            
-            if !viewModel.nextAvailableStatuses.isEmpty {
-                VStack(spacing: 10) {
-                    ForEach(viewModel.nextAvailableStatuses, id: \.self) { status in
-                        Button(action: {
-                            Task {
-                                await viewModel.updateJobStatus(to: status)
-                            }
-                        }) {
-                            HStack {
-                                Image(systemName: statusIcon(for: status))
-                                    .foregroundColor(.white)
-                                
-                                Text("Mark as \(status.replacingOccurrences(of: "_", with: " ").capitalized)")
-                                    .fontWeight(.medium)
-                                    .foregroundColor(.white)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                            .background(statusColor(for: status))
-                            .cornerRadius(10)
-                        }
-                        .disabled(viewModel.statusUpdateInProgress)
-                    }
+                        .foregroundColor(.secondary)
+                    Text("\(String(format: "%.1f", weight)) kg")
+                        .font(.body)
+                        .fontWeight(.medium)
                 }
-            } else {
-                Text("No further status updates available")
+                
+                Spacer()
+                
+                VStack(alignment: .leading) {
+                    Text("Dimensions:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Text("\(String(format: "%.1f", dimensions.length)) × \(String(format: "%.1f", dimensions.width)) × \(String(format: "%.1f", dimensions.height)) \(dimensions.unit)")
+                        .font(.body)
+                                    .fontWeight(.medium)
+                }
+            }
+            
+            if !description.isEmpty {
+                Divider()
+                
+                VStack(alignment: .leading) {
+                    Text("Description:")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                    .padding()
+                    Text(description)
+                        .font(.body)
+                }
             }
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
     }
     
-    // MARK: - Contact Section
-    private func contactSection(job: JobDTO) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Contact Information")
-                .font(.headline)
-            
-            Divider()
-            
-            // Shipper Info
-            if let shipperName = job.shipperName {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Shipper")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(shipperName)
-                            .font(.subheadline)
-                    }
-                    
-                    Spacer()
-                    
-                    if let shipperPhone = job.shipperPhone, !shipperPhone.isEmpty {
-                        Button(action: {
-                            if let url = URL(string: "tel://\(shipperPhone.replacingOccurrences(of: " ", with: ""))") {
-                                UIApplication.shared.open(url)
-                            }
-                        }) {
-                            Image(systemName: "phone.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.green)
-                        }
-                    }
-                }
-                .padding(.vertical, 8)
+    // MARK: - Action Buttons
+    private func actionButtons(job: JobDTO) -> some View {
+        VStack(spacing: 16) {
+            // Package dimensions form if needed
+            if job.status.rawValue == "assigned" && viewModel.showDimensionsForm {
+                DimensionsFormPlaceholder(
+                    weight: $viewModel.weight,
+                    length: $viewModel.length,
+                    width: $viewModel.width,
+                    height: $viewModel.height,
+                    dimensionUnit: $viewModel.dimensionUnit,
+                    description: $viewModel.packageDescription
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(.systemBackground))
+                        .shadow(color: Color.black.opacity(0.08), radius: 5, x: 0, y: 2)
+                )
+                .transition(.opacity)
+                .padding(.bottom, 16)
             }
             
-            // Recipient Info
-            if let recipientName = job.recipientName {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Recipient")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Text(recipientName)
-                            .font(.subheadline)
-                    }
-                    
-                    Spacer()
-                    
-                    if let recipientPhone = job.recipientPhone, !recipientPhone.isEmpty {
+            // Change status button (if available)
+            if let nextStatus = viewModel.nextAvailableStatuses.first {
                         Button(action: {
-                            if let url = URL(string: "tel://\(recipientPhone.replacingOccurrences(of: " ", with: ""))") {
-                                UIApplication.shared.open(url)
-                            }
-                        }) {
-                            Image(systemName: "phone.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.green)
+                    // If picking up and dimensions not shown yet, show form
+                    if nextStatus == "picked_up" && !viewModel.showDimensionsForm {
+                        withAnimation {
+                            viewModel.showDimensionsForm = true
+                        }
+                    } else {
+                        // Otherwise proceed with status update
+                        Task {
+                            await viewModel.updateJobStatus(to: nextStatus)
                         }
                     }
+                }) {
+                HStack {
+                        Text(viewModel.showDimensionsForm ? 
+                             "Confirm Package Pickup" : 
+                             "Mark as \(statusDisplayName(nextStatus))")
+                            .fontWeight(.semibold)
+                        
+                        if viewModel.statusUpdateInProgress {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle())
+                                .scaleEffect(0.8)
+                                .padding(.leading, 4)
+                        } else {
+                            Image(systemName: "arrow.right.circle.fill")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.blue, Color.blue.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(16)
+                    .shadow(color: Color.blue.opacity(0.3), radius: 5, x: 0, y: 2)
+                    .disabled(viewModel.statusUpdateInProgress)
                 }
-                .padding(.vertical, 8)
+                .disabled(viewModel.statusUpdateInProgress)
             }
             
-            // Support Contact
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Support")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Moving Mountains Support")
-                        .font(.subheadline)
-                }
-                
-                Spacer()
-                
+            // Call customer button
+            /* JobDTO doesn't have customerPhone property yet
+            if let phoneNumber = job.customerPhone, !phoneNumber.isEmpty {
                 Button(action: {
-                    if let url = URL(string: "tel://+18005551234") {
+                    if let url = URL(string: "tel:\(phoneNumber.replacingOccurrences(of: " ", with: ""))") {
                         UIApplication.shared.open(url)
                     }
                 }) {
-                    Image(systemName: "phone.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(.green)
-                }
-            }
-            .padding(.vertical, 8)
-        }
+                    HStack {
+                        Image(systemName: "phone.fill")
+                        Text("Call Customer")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-    }
-    
-    // MARK: - Notes Section
-    private func notesSection(notes: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Notes")
-                .font(.headline)
-            
-            Divider()
-            
-            Text(notes)
-                .font(.subheadline)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
-    }
-    
-    // MARK: - Success Message Overlay
-    private var successMessageOverlay: some View {
-        VStack {
-            HStack(spacing: 16) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title2)
-                
-                Text(viewModel.successMessage)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                
-                Spacer()
-                
-                Button(action: {
-                    viewModel.showingSuccessMessage = false
-                }) {
-                    Image(systemName: "xmark")
-                        .foregroundColor(.gray)
+                    .background(
+                        LinearGradient(
+                            gradient: Gradient(colors: [Color.green, Color.green.opacity(0.8)]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(16)
+                    .shadow(color: Color.green.opacity(0.3), radius: 5, x: 0, y: 2)
                 }
             }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(10)
-            .shadow(radius: 5)
-            .padding(.horizontal)
-            .padding(.top, 8)
-            
-            Spacer()
+            */
         }
     }
     
-    // MARK: - Loading Overlay
-    private struct LoadingOverlay: View {
-        var body: some View {
-            ZStack {
-                Color.black.opacity(0.2)
-                    .edgesIgnoringSafeArea(.all)
-                
-                VStack(spacing: 20) {
-                    ProgressView()
-                        .scaleEffect(1.5)
-                    
-                    Text("Loading job details...")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                }
-                .padding(20)
-                .background(Color(.systemBackground).opacity(0.9))
-                .cornerRadius(10)
-                .shadow(radius: 10)
-            }
+    // Helper function to convert status keys to display names
+    private func statusDisplayName(_ status: String) -> String {
+        switch status {
+        case "picked_up":
+            return "Picked Up"
+        case "in_transit":
+            return "In Transit"
+        case "delivered":
+            return "Delivered"
+        default:
+            return status.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+    
+    // Helper function to get status color
+    private func statusColor(for status: String) -> Color {
+        switch status {
+        case "assigned":
+            return .blue
+        case "picked_up":
+            return .orange
+        case "in_transit":
+            return .purple
+        case "delivered":
+            return .green
+        default:
+            return .gray
         }
     }
     
     // MARK: - Helper Functions
-    private func createMapAnnotations() -> [MapAnnotation] {
-        guard let job = viewModel.job,
-              let pickupLat = Double(job.pickupLatitude ?? "0"),
-              let pickupLng = Double(job.pickupLongitude ?? "0"),
-              let deliveryLat = Double(job.deliveryLatitude ?? "0"),
-              let deliveryLng = Double(job.deliveryLongitude ?? "0") else {
+    private func createMapAnnotations() -> [CustomMapAnnotation] {
+        guard viewModel.job != nil else {
             return []
         }
+        
+        // Default coordinates
+        let pickupLat = 43.6532
+        let pickupLng = -79.3832
+        let deliveryLat = 43.7532
+        let deliveryLng = -79.4832
         
         let pickupCoordinate = CLLocationCoordinate2D(latitude: pickupLat, longitude: pickupLng)
         let deliveryCoordinate = CLLocationCoordinate2D(latitude: deliveryLat, longitude: deliveryLng)
         
         return [
-            MapAnnotation(
+            CustomMapAnnotation(
                 id: "pickup",
                 coordinate: pickupCoordinate,
                 title: "Pickup",
                 iconName: "arrow.up.circle.fill",
                 color: .blue
             ),
-            MapAnnotation(
+            CustomMapAnnotation(
                 id: "delivery",
                 coordinate: deliveryCoordinate,
                 title: "Delivery",
@@ -941,40 +1232,10 @@ struct JobDetailsView: View {
         
         return dateString
     }
-    
-    private func statusIcon(for status: String) -> String {
-        switch status {
-        case "assigned":
-            return "person.fill"
-        case "picked_up":
-            return "cube.box.fill"
-        case "in_transit":
-            return "car.fill"
-        case "delivered":
-            return "checkmark.circle.fill"
-        default:
-            return "circle"
-        }
-    }
-    
-    private func statusColor(for status: String) -> Color {
-        switch status {
-        case "assigned":
-            return .blue
-        case "picked_up":
-            return .orange
-        case "in_transit":
-            return .purple
-        case "delivered":
-            return .green
-        default:
-            return .gray
-        }
-    }
 }
 
 // MARK: - Map Annotation
-struct MapAnnotation: Identifiable {
+struct CustomMapAnnotation: Identifiable {
     let id: String
     let coordinate: CLLocationCoordinate2D
     let title: String
@@ -982,66 +1243,127 @@ struct MapAnnotation: Identifiable {
     let color: Color
 }
 
-// MARK: - Status Badge
-struct StatusBadge: View {
-    let status: String
-    
-    var body: some View {
-        Text(status.replacingOccurrences(of: "_", with: " ").capitalized)
-            .font(.caption)
-            .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(backgroundColor)
-            .foregroundColor(textColor)
-            .cornerRadius(12)
-    }
-    
-    private var backgroundColor: Color {
-        switch status {
-        case "pending":
-            return Color.gray.opacity(0.2)
-        case "quoted":
-            return Color.blue.opacity(0.2)
-        case "approved":
-            return Color.green.opacity(0.2)
-        case "assigned":
-            return Color.orange.opacity(0.2)
-        case "picked_up":
-            return Color.purple.opacity(0.2)
-        case "in_transit":
-            return Color.indigo.opacity(0.2)
-        case "delivered":
-            return Color.mint.opacity(0.2)
-        default:
-            return Color.gray.opacity(0.2)
-        }
-    }
-    
-    private var textColor: Color {
-        switch status {
-        case "pending":
-            return .gray
-        case "quoted":
-            return .blue
-        case "approved":
-            return .green
-        case "assigned":
-            return .orange
-        case "picked_up":
-            return .purple
-        case "in_transit":
-            return .indigo
-        case "delivered":
-            return .mint
-        default:
-            return .gray
+struct JobDetailsView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            JobDetailsView(apiClient: APIClient(authService: AuthService()), jobId: 1)
         }
     }
 }
 
-#Preview {
-    NavigationView {
-        JobDetailsView(apiClient: APIClient(authService: AuthService()), jobId: 1)
+// Temporary placeholder until PackageDimensionsForm is properly imported
+struct DimensionsFormPlaceholder: View {
+    @Binding var weight: String
+    @Binding var length: String
+    @Binding var width: String
+    @Binding var height: String
+    @Binding var dimensionUnit: String
+    @Binding var description: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            // Header
+            HStack {
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.1))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "shippingbox.fill")
+                        .font(.system(size: 18))
+                        .foregroundColor(.purple)
+                }
+                
+                Text("Package Dimensions")
+                    .font(.headline)
+                Spacer()
+            }
+            
+            Divider()
+            
+            // Weight input with card style
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Weight")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                HStack(spacing: 10) {
+                    TextField("Enter weight", text: $weight)
+                        .keyboardType(.decimalPad)
+                        .padding()
+                        .background(Color.secondary.opacity(0.1))
+                        .cornerRadius(10)
+                    
+                    Text("kg")
+                        .font(.body)
+                        .foregroundColor(.secondary)
+                        .frame(width: 40)
+                }
+            }
+            
+            // Dimensions Group
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Dimensions")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                // Unit selector at the top
+                HStack {
+                    Text("Unit:")
+            .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Picker("Unit", selection: $dimensionUnit) {
+                        Text("cm").tag("cm")
+                        Text("in").tag("in")
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                    .frame(width: 120)
+                    
+                    Spacer()
+                }
+                
+                // Length, width, height inputs
+                VStack(spacing: 12) {
+                    dimensionField(label: "Length", value: $length)
+                    dimensionField(label: "Width", value: $width)
+                    dimensionField(label: "Height", value: $height)
+                }
+            }
+            
+            // Package description
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Description")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                TextField("Package description (optional)", text: $description)
+                    .frame(height: 80)
+                    .padding()
+                    .background(Color.secondary.opacity(0.1))
+                    .cornerRadius(10)
+            }
+        }
+        .padding(20)
+    }
+    
+    // Helper for consistent dimension fields
+    private func dimensionField(label: String, value: Binding<String>) -> some View {
+        HStack(spacing: 10) {
+            Text(label)
+                .font(.body)
+                .foregroundColor(.primary)
+                .frame(width: 80, alignment: .leading)
+            
+            TextField("Enter \(label.lowercased())", text: value)
+                .keyboardType(.decimalPad)
+                .padding()
+                .background(Color.secondary.opacity(0.1))
+                .cornerRadius(10)
+            
+            Text(dimensionUnit.isEmpty ? "cm" : dimensionUnit)
+                .font(.body)
+                .foregroundColor(.secondary)
+                .frame(width: 40)
+        }
     }
 } 

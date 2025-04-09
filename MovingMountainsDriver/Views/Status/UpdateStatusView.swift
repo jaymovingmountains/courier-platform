@@ -1,9 +1,43 @@
 import SwiftUI
+import UIKit
 
 struct StatusOption: Identifiable {
     let id: String
     let label: String
     let description: String
+}
+
+// Add StatusBadge directly in this file as a fallback
+struct StatusBadge: View {
+    let status: String
+    
+    var body: some View {
+        Text(status.replacingOccurrences(of: "_", with: " ").capitalized)
+            .font(.caption)
+            .fontWeight(.medium)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(backgroundColor)
+            .foregroundColor(.white)
+            .cornerRadius(8)
+    }
+    
+    private var backgroundColor: Color {
+        switch status.lowercased() {
+        case "pending":
+            return .orange
+        case "picked_up", "pickup_started", "pickup_complete":
+            return .blue
+        case "in_transit", "in_progress", "out_for_delivery":
+            return .purple
+        case "delivered", "complete", "completed":
+            return .green
+        case "cancelled", "canceled", "failed":
+            return .red
+        default:
+            return .gray
+        }
+    }
 }
 
 // Create an identifiable alert item
@@ -149,7 +183,7 @@ struct UpdateStatusView: View {
                         Text("Current Status:")
                             .font(.headline)
                         
-                        StatusBadgeView(status: job.status.rawValue)
+                        StatusBadge(status: job.status.rawValue)
                     }
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)

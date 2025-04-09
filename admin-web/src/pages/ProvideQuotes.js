@@ -4,7 +4,7 @@ import * as Yup from 'yup';
 import axios from 'axios';
 import './ProvideQuotes.css';
 import ShipmentModal from '../components/ShipmentModal';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 
 const quoteSchema = Yup.object().shape({
   quote_amount: Yup.number()
@@ -15,41 +15,15 @@ const quoteSchema = Yup.object().shape({
 
 const ProvideQuotes = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [singleShipment, setSingleShipment] = useState(null);
   const [shipments, setShipments] = useState([]);
   const [users, setUsers] = useState([]);
   const [quoteHistory, setQuoteHistory] = useState([]);
-  const [quoteAmount, setQuoteAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [printingLabel, setPrintingLabel] = useState(false);
-
-  const fetchShipments = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/shipments', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        params: {
-          status: 'pending'
-        }
-      });
-      setShipments(response.data);
-      setError(null);
-    } catch (err) {
-      setError('Failed to fetch shipments. Please try again.');
-      console.error('Error fetching shipments:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchQuoteHistory = async () => {
     try {
@@ -88,17 +62,6 @@ const ProvideQuotes = () => {
         setQuoteHistory(quotedRes.data);
         setUsers(usersRes.data);
         
-        // If specific shipment ID is provided, fetch that shipment
-        if (id) {
-          const specificShipmentRes = await axios.get(`http://localhost:3001/shipments/${id}`, { headers });
-          setSingleShipment(specificShipmentRes.data);
-          
-          // Pre-populate quote amount if this is a re-quote
-          if (specificShipmentRes.data.quote_amount) {
-            setQuoteAmount(specificShipmentRes.data.quote_amount.toString());
-          }
-        }
-        
         setError(null);
       } catch (err) {
         setError('Failed to fetch shipments. Please try again.');
@@ -129,7 +92,6 @@ const ProvideQuotes = () => {
       setShipments(prevShipments => prevShipments.filter(s => s.id !== shipmentId));
       
       // Add success message
-      const shipment = shipments.find(s => s.id === shipmentId);
       setSuccessMessage(`Quote of $${values.quote_amount} successfully submitted for shipment #${shipmentId}`);
       
       // Clear success message after 5 seconds
@@ -182,7 +144,6 @@ const ProvideQuotes = () => {
   // Handle printing shipping label
   const handlePrintLabel = async (shipmentId) => {
     try {
-      setPrintingLabel(true);
       const token = localStorage.getItem('token');
       
       // Get the shipping label PDF
@@ -209,12 +170,9 @@ const ProvideQuotes = () => {
           printWindow.print();
         });
       }
-      
-      setPrintingLabel(false);
     } catch (err) {
       console.error('Error printing shipping label:', err);
       alert('Failed to print shipping label. Please try again.');
-      setPrintingLabel(false);
     }
   };
 

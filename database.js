@@ -1,427 +1,374 @@
 require('dotenv').config();
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-// Ensure data directory exists
-const dataDir = path.resolve(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-  console.log('Created data directory at', dataDir);
-}
+// Import cross-fetch for Node environments
+const fetch = require('cross-fetch');
+global.fetch = fetch;
 
-// Create database connection
-const dbPath = path.resolve(__dirname, process.env.DB_PATH || 'data/courier.db');
-console.log('Using database at path:', dbPath);
+// Import Supabase client
+const { createClient } = require('@supabase/supabase-js');
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Error connecting to database:', err);
-    return;
-  }
-  console.log('Connected to SQLite database');
-  initializeDatabase();
-});
+// Supabase client initialization
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
 
-// Initialize database tables
-function initializeDatabase() {
-  db.serialize(() => {
-    // Users table
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT,
-      role TEXT CHECK(role IN ('shipper', 'admin', 'driver')),
-      name TEXT
-    )`);
-
-    // Vehicles table
-    db.run(`CREATE TABLE IF NOT EXISTS vehicles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      vehicle_name TEXT NOT NULL,
-      license_plate TEXT UNIQUE
-    )`);
-
-    // Shipments table
-    db.run(`CREATE TABLE IF NOT EXISTS shipments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shipper_id INTEGER,
-      driver_id INTEGER NULL,
-      vehicle_id INTEGER NULL,
-      shipment_type TEXT,
-      pickup_address TEXT,
-      pickup_city TEXT,
-      pickup_postal_code TEXT,
-      delivery_address TEXT,
-      delivery_city TEXT,
-      delivery_postal_code TEXT,
-      status TEXT,
-      quote_amount REAL NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      province VARCHAR(2),
-      invoiceUrl TEXT,
-      FOREIGN KEY (shipper_id) REFERENCES users(id),
-      FOREIGN KEY (driver_id) REFERENCES users(id),
-      FOREIGN KEY (vehicle_id) REFERENCES vehicles(id)
-    )`);
-
-    // Jobs table (if it doesn't exist already)
-    db.run(`CREATE TABLE IF NOT EXISTS jobs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shipment_id INTEGER NOT NULL,
-      driver_id INTEGER NULL,
-      status TEXT,
-      assigned_at DATETIME,
-      completed_at DATETIME,
-      FOREIGN KEY (shipment_id) REFERENCES shipments(id),
-      FOREIGN KEY (driver_id) REFERENCES users(id)
-    )`);
-
-    // Notifications table for tracking shipment status updates
-    db.run(`CREATE TABLE IF NOT EXISTS notifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shipper_id INTEGER NOT NULL,
-      shipment_id INTEGER NOT NULL,
-      title TEXT NOT NULL,
-      message TEXT NOT NULL,
-      type TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      is_read INTEGER DEFAULT 0,
-      FOREIGN KEY (shipper_id) REFERENCES users(id),
-      FOREIGN KEY (shipment_id) REFERENCES shipments(id)
-    )`);
-
-    // Clients table
-    db.run(`CREATE TABLE IF NOT EXISTS clients (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shipper_id INTEGER,
-      name TEXT NOT NULL,
-      email TEXT NOT NULL,
-      phone TEXT NOT NULL,
-      company TEXT,
-      address TEXT NOT NULL,
-      city TEXT NOT NULL,
-      postal_code TEXT NOT NULL,
-      notes TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (shipper_id) REFERENCES users(id)
-    )`);
-
-    // Saved Addresses table
-    db.run(`CREATE TABLE IF NOT EXISTS saved_addresses (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      shipper_id INTEGER NOT NULL,
-      address_name TEXT NOT NULL,
-      address TEXT NOT NULL,
-      city TEXT NOT NULL,
-      postal_code TEXT NOT NULL,
-      province TEXT NOT NULL,
-      is_default BOOLEAN DEFAULT 0,
-      is_pickup BOOLEAN DEFAULT 1,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (shipper_id) REFERENCES users(id)
-    )`);
-
-    // Alter existing tables if they already exist
-    // Check if name column exists in users table
-    db.get("PRAGMA table_info(users)", (err, rows) => {
-      if (err) {
-        console.error('Error checking users table schema:', err);
-        return;
-      }
-      
-      // If name column doesn't exist, add it
-      const nameColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'name');
-      if (!nameColumnExists) {
-        db.run(`ALTER TABLE users ADD COLUMN name TEXT`, (err) => {
-          if (err) {
-            console.error('Error adding name column to users table:', err);
-            return;
-          }
-          console.log('Added name column to users table');
-        });
-      }
-    });
-
-    // Check if vehicle_id column exists in shipments table
-    db.get("PRAGMA table_info(shipments)", (err, rows) => {
-      if (err) {
-        console.error('Error checking shipments table schema:', err);
-        return;
-      }
-      
-      // If vehicle_id column doesn't exist, add it
-      const vehicleIdColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'vehicle_id');
-      if (!vehicleIdColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN vehicle_id INTEGER REFERENCES vehicles(id)`, (err) => {
-          if (err) {
-            console.error('Error adding vehicle_id column to shipments table:', err);
-            return;
-          }
-          console.log('Added vehicle_id column to shipments table');
-        });
-      }
-      
-      // Check if province column exists in shipments table
-      const provinceColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'province');
-      if (!provinceColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN province VARCHAR(2)`, (err) => {
-          if (err) {
-            console.error('Error adding province column to shipments table:', err);
-            return;
-          }
-          console.log('Added province column to shipments table');
-        });
-      }
-      
-      // Check if invoiceUrl column exists in shipments table
-      const invoiceUrlColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'invoiceUrl');
-      if (!invoiceUrlColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN invoiceUrl TEXT`, (err) => {
-          if (err) {
-            console.error('Error adding invoiceUrl column to shipments table:', err);
-            return;
-          }
-          console.log('Added invoiceUrl column to shipments table');
-        });
-      }
-      
-      // Check if tax_amount column exists
-      const taxAmountColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'tax_amount');
-      if (!taxAmountColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN tax_amount REAL`, (err) => {
-          if (err) {
-            console.error('Error adding tax_amount column to shipments table:', err);
-            return;
-          }
-          console.log('Added tax_amount column to shipments table');
-        });
-      }
-      
-      // Check if total_amount column exists
-      const totalAmountColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'total_amount');
-      if (!totalAmountColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN total_amount REAL`, (err) => {
-          if (err) {
-            console.error('Error adding total_amount column to shipments table:', err);
-            return;
-          }
-          console.log('Added total_amount column to shipments table');
-        });
-      }
-      
-      // Check if payment_status column exists
-      const paymentStatusColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'payment_status');
-      if (!paymentStatusColumnExists) {
-        db.run(`ALTER TABLE shipments ADD COLUMN payment_status TEXT DEFAULT 'unpaid'`, (err) => {
-          if (err) {
-            console.error('Error adding payment_status column to shipments table:', err);
-            return;
-          }
-          console.log('Added payment_status column to shipments table');
-        });
-      }
-    });
-
-    // Check if province column exists in jobs table
-    db.get("PRAGMA table_info(jobs)", (err, rows) => {
-      if (err) {
-        console.error('Error checking jobs table schema:', err);
-        return;
-      }
-      
-      // If province column doesn't exist, add it
-      const provinceColumnExists = Array.isArray(rows) && rows.some(row => row.name === 'province');
-      if (!provinceColumnExists) {
-        db.run(`ALTER TABLE jobs ADD COLUMN province VARCHAR(2)`, (err) => {
-          if (err) {
-            console.error('Error adding province column to jobs table:', err);
-            return;
-          }
-          console.log('Added province column to jobs table');
-        });
-      }
-    });
-
-    // Migration: Update users with null names
-    // Set name = username for any user where name is null
-    db.run(`UPDATE users SET name = username WHERE name IS NULL OR name = ''`, (err) => {
-      if (err) {
-        console.error('Error updating users with null names:', err);
-      } else {
-        console.log('Migration: Updated users with null names to use username as name');
-      }
-    });
-
-    // Add seed data
+// Fallback to SQLite in development if Supabase credentials are missing
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Error: Supabase credentials missing. Please set SUPABASE_URL and SUPABASE_KEY in your environment variables.');
+  
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('Falling back to SQLite for development environment');
     
-    // 1. Check if Driver1 exists, if not create it, then update name to 'John Doe'
-    db.get(`SELECT id FROM users WHERE username = 'Driver1'`, (err, user) => {
+    // Load SQLite version of the database module
+    const sqlite3 = require('sqlite3').verbose();
+    
+    // Ensure data directory exists
+    const dataDir = path.resolve(__dirname, 'data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log('Created data directory at', dataDir);
+    }
+    
+    // Create database connection
+    const dbPath = path.resolve(__dirname, process.env.DB_PATH || 'data/courier.db');
+    console.log('Using SQLite database at path:', dbPath);
+    
+    const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
       if (err) {
-        console.error('Error checking for Driver1:', err);
-        return;
+        console.error('Error connecting to database:', err);
+        process.exit(1);
       }
+      console.log('Connected to SQLite database');
       
-      if (!user) {
-        // Hash the password before storing
-        const bcrypt = require('bcrypt');
-        bcrypt.hash('driver123', 10, (err, hashedPassword) => {
+      // Enable foreign keys
+      db.run('PRAGMA foreign_keys = ON');
+    });
+    
+    // Initialize SQLite database
+    try {
+      require('./database-sqlite-init')(db);
+    } catch (err) {
+      console.error('Error initializing SQLite database:', err);
+      console.log('Created empty SQLite database instead');
+    }
+    
+    // Helper function to run queries with promises for SQLite
+    function run(query, params = []) {
+      return new Promise((resolve, reject) => {
+        db.run(query, params, function(err) {
           if (err) {
-            console.error('Error hashing password:', err);
+            console.error('SQL Error in run():', err.message);
+            console.error('Query:', query);
+            console.error('Params:', JSON.stringify(params));
+            reject(err);
             return;
           }
-          
-          // Driver1 doesn't exist, create it first with hashed password
-          db.run(`INSERT INTO users (username, password, role) VALUES (?, ?, ?)`, 
-            ['Driver1', hashedPassword, 'driver'], 
-            function(err) {
-              if (err) {
-                console.error('Error adding Driver1 user:', err);
-                return;
-              }
-              console.log(`Added Driver1 user with ID: ${this.lastID}`);
-              
-              // Now update the name
-              db.run(`UPDATE users SET name = 'John Doe' WHERE username = 'Driver1'`, (err) => {
-                if (err) {
-                  console.error('Error updating Driver1 name:', err);
-                } else {
-                  console.log('Updated name for Driver1 to John Doe');
-                }
-              });
-            }
-          );
+          resolve({ id: this.lastID, changes: this.changes });
         });
-      } else {
-        // Driver1 exists, check if password needs to be hashed
-        db.get(`SELECT password FROM users WHERE username = 'Driver1'`, (err, userData) => {
+      });
+    }
+    
+    // Helper function to get single row for SQLite
+    function get(query, params = []) {
+      return new Promise((resolve, reject) => {
+        db.get(query, params, (err, result) => {
           if (err) {
-            console.error('Error checking Driver1 password:', err);
+            console.error('SQL Error in get():', err.message);
+            console.error('Query:', query);
+            console.error('Params:', JSON.stringify(params));
+            reject(err);
             return;
           }
-          
-          // If password is not hashed (doesn't start with $2b$), hash it
-          if (userData.password && !userData.password.startsWith('$2b$')) {
-            const bcrypt = require('bcrypt');
-            bcrypt.hash('driver123', 10, (err, hashedPassword) => {
-              if (err) {
-                console.error('Error hashing password:', err);
-                return;
-              }
-              
-              // Update with hashed password
-              db.run(`UPDATE users SET password = ? WHERE username = 'Driver1'`, [hashedPassword], (err) => {
-                if (err) {
-                  console.error('Error updating Driver1 password:', err);
-                } else {
-                  console.log('Updated Driver1 password to hashed version');
-                }
-              });
-            });
-          }
-          
-          // Update the name
-          db.run(`UPDATE users SET name = 'John Doe' WHERE username = 'Driver1'`, (err) => {
-            if (err) {
-              console.error('Error updating Driver1 name:', err);
-            } else {
-              console.log('Updated name for Driver1 to John Doe');
-            }
-          });
+          resolve(result);
         });
+      });
+    }
+    
+    // Helper function to get multiple rows for SQLite
+    function all(query, params = []) {
+      return new Promise((resolve, reject) => {
+        db.all(query, params, (err, rows) => {
+          if (err) {
+            console.error('SQL Error in all():', err.message);
+            console.error('Query:', query);
+            console.error('Params:', JSON.stringify(params));
+            reject(err);
+            return;
+          }
+          resolve(rows || []);
+        });
+      });
+    }
+    
+    // SQLite exports
+    module.exports = {
+      db,
+      run,
+      get,
+      all
+    };
+    
+    return;
+  } else {
+    console.error('Supabase credentials are required in production mode');
+    process.exit(1);
+  }
+}
+
+// If we reach here, we're using Supabase
+console.log('Connecting to Supabase database at:', supabaseUrl);
+
+try {
+  // Create Supabase client with explicit fetch implementation
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      fetch: fetch,
+    }
+  });
+
+  // Test connection immediately to catch any issues early
+  console.log('Testing Supabase connection...');
+  supabase.from('users').select('count').limit(1)
+    .then(({ data, error }) => {
+      if (error) {
+        console.error('Supabase connection test failed:', error);
+      } else {
+        console.log('✅ Supabase connection successful!');
       }
+    })
+    .catch(err => {
+      console.error('Error testing Supabase connection:', err);
     });
 
-    // 2. Add Van 1 vehicle (if it doesn't exist)
-    db.get(`SELECT id FROM vehicles WHERE license_plate = 'ABC123'`, (err, vehicle) => {
-      if (err) {
-        console.error('Error checking for existing vehicle:', err);
-        return;
+  // Helper function to run INSERT/UPDATE/DELETE queries
+  async function run(query, params = []) {
+    try {
+      // Convert SQLite-style placeholders to PostgreSQL style
+      let processedQuery = query;
+      if (params.length > 0) {
+        let paramCount = 0;
+        processedQuery = query.replace(/\?/g, () => `$${++paramCount}`);
       }
       
-      if (!vehicle) {
-        db.run(`INSERT INTO vehicles (vehicle_name, license_plate) VALUES (?, ?)`, 
-          ['Van 1', 'ABC123'], 
-          function(err) {
-            if (err) {
-              console.error('Error adding Van 1 vehicle:', err);
-              return;
-            }
-            console.log(`Added Van 1 vehicle with ID: ${this.lastID}`);
-          }
-        );
-      } else {
-        console.log('Van 1 vehicle already exists');
-      }
-    });
-
-    // 3. Add Truck 1 vehicle (if it doesn't exist)
-    db.get(`SELECT id FROM vehicles WHERE license_plate = 'XYZ789'`, (err, vehicle) => {
-      if (err) {
-        console.error('Error checking for existing vehicle:', err);
-        return;
+      // Debug query if not in production
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('RUN QUERY:', processedQuery.substring(0, 100) + (processedQuery.length > 100 ? '...' : ''));
+        if (params.length) console.debug('PARAMS:', JSON.stringify(params));
       }
       
-      if (!vehicle) {
-        db.run(`INSERT INTO vehicles (vehicle_name, license_plate) VALUES (?, ?)`, 
-          ['Truck 1', 'XYZ789'], 
-          function(err) {
-            if (err) {
-              console.error('Error adding Truck 1 vehicle:', err);
-              return;
+      // Execute the query using Supabase's rpc function
+      try {
+        // First check if execute_sql function exists
+        const { data: funcCheck, error: funcError } = await supabase.rpc('execute_sql', {
+          sql_query: 'SELECT 1 as test', 
+          params: []
+        });
+        
+        if (funcError) {
+          // If the RPC function doesn't exist, use direct table operations instead
+          console.warn('Warning: execute_sql function not found, using direct table operations');
+          
+          // Handle common query types
+          if (processedQuery.trim().toUpperCase().startsWith('INSERT INTO')) {
+            // Extract table name and handle insert
+            const tableMatch = processedQuery.match(/INSERT INTO\s+(\w+)/i);
+            if (tableMatch && tableMatch[1]) {
+              const tableName = tableMatch[1];
+              
+              // Extract values to insert
+              // This is simplified and won't work for all cases
+              // In a real implementation, you'd need proper SQL parsing
+              
+              // For now, just log the error
+              console.error('Direct INSERT not implemented');
+              throw new Error('Direct insert operations not implemented. Please create the execute_sql function in Supabase.');
             }
-            console.log(`Added Truck 1 vehicle with ID: ${this.lastID}`);
           }
-        );
-      } else {
-        console.log('Truck 1 vehicle already exists');
+          
+          throw new Error('SQL execution failed: execute_sql function not found in Supabase');
+        }
+        
+        // If we get here, the function exists, use it
+        const { data, error } = await supabase.rpc('execute_sql', {
+          sql_query: processedQuery,
+          params: params
+        });
+        
+        if (error) throw error;
+        
+        // Return an object that mimics the SQLite response
+        return { 
+          id: data?.id || data?.lastInsertId || null,
+          changes: data?.rowCount || data?.changes || 0 
+        };
+      } catch (rpcError) {
+        console.error('Error executing SQL via RPC:', rpcError);
+        throw rpcError;
       }
-    });
-  });
-}
+    } catch (error) {
+      console.error('SQL Error in run():', error.message);
+      console.error('Query:', query);
+      console.error('Params:', JSON.stringify(params));
+      throw error;
+    }
+  }
 
-// Helper function to run queries with promises
-function run(query, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(query, params, function(err) {
-      if (err) {
-        reject(err);
-        return;
+  // Helper function to get single row
+  async function get(query, params = []) {
+    try {
+      // Convert SQLite-style placeholders to PostgreSQL style
+      let processedQuery = query;
+      if (params.length > 0) {
+        let paramCount = 0;
+        processedQuery = query.replace(/\?/g, () => `$${++paramCount}`);
       }
-      resolve({ id: this.lastID });
-    });
-  });
-}
-
-// Helper function to get single row
-function get(query, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(query, params, (err, result) => {
-      if (err) {
-        reject(err);
-        return;
+      
+      // Add LIMIT 1 if not present to ensure only one row is returned
+      if (!processedQuery.toLowerCase().includes('limit')) {
+        processedQuery += ' LIMIT 1';
       }
-      resolve(result);
-    });
-  });
-}
-
-// Helper function to get multiple rows
-function all(query, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(query, params, (err, rows) => {
-      if (err) {
-        reject(err);
-        return;
+      
+      // Debug query if not in production
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('GET QUERY:', processedQuery.substring(0, 100) + (processedQuery.length > 100 ? '...' : ''));
+        if (params.length) console.debug('PARAMS:', JSON.stringify(params));
       }
-      resolve(rows);
-    });
-  });
-}
 
-module.exports = {
-  db,
-  run,
-  get,
-  all
-};
+      try {
+        // Check if execute_sql function exists
+        const { data: funcCheck, error: funcError } = await supabase.rpc('execute_sql', {
+          sql_query: 'SELECT 1 as test', 
+          params: []
+        });
+        
+        if (funcError) {
+          // If the RPC function doesn't exist, use direct table operations instead
+          console.warn('Warning: execute_sql function not found, using direct table operations');
+          
+          // Extract table name for direct query
+          // This is a very simplified approach and won't work for complex queries
+          const tableMatch = processedQuery.match(/FROM\s+(\w+)/i);
+          if (tableMatch && tableMatch[1]) {
+            const tableName = tableMatch[1];
+            
+            // For now, just log the error
+            console.error('Direct SELECT not implemented');
+            throw new Error('Direct select operations not implemented. Please create the execute_sql function in Supabase.');
+          }
+          
+          throw new Error('SQL execution failed: execute_sql function not found in Supabase');
+        }
+        
+        // If the function exists, use it
+        const { data, error } = await supabase.rpc('execute_sql', {
+          sql_query: processedQuery,
+          params: params
+        });
+        
+        if (error) throw error;
+        return data && data.length > 0 ? data[0] : null;
+      } catch (rpcError) {
+        console.error('Error executing SQL via RPC:', rpcError);
+        throw rpcError;
+      }
+    } catch (error) {
+      console.error('SQL Error in get():', error.message);
+      console.error('Query:', query);
+      console.error('Params:', JSON.stringify(params));
+      throw error;
+    }
+  }
+
+  // Helper function to get multiple rows
+  async function all(query, params = []) {
+    try {
+      // Convert SQLite-style placeholders to PostgreSQL style
+      let processedQuery = query;
+      if (params.length > 0) {
+        let paramCount = 0;
+        processedQuery = query.replace(/\?/g, () => `$${++paramCount}`);
+      }
+      
+      // Debug query if not in production
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('ALL QUERY:', processedQuery.substring(0, 100) + (processedQuery.length > 100 ? '...' : ''));
+        if (params.length) console.debug('PARAMS:', JSON.stringify(params));
+      }
+
+      try {
+        // Check if execute_sql function exists
+        const { data: funcCheck, error: funcError } = await supabase.rpc('execute_sql', {
+          sql_query: 'SELECT 1 as test', 
+          params: []
+        });
+        
+        if (funcError) {
+          // If the RPC function doesn't exist, use direct table operations instead
+          console.warn('Warning: execute_sql function not found, using direct table operations');
+          
+          // Extract table name for direct query
+          // This is a very simplified approach and won't work for complex queries
+          const tableMatch = processedQuery.match(/FROM\s+(\w+)/i);
+          if (tableMatch && tableMatch[1]) {
+            const tableName = tableMatch[1];
+            
+            // For now, just log the error
+            console.error('Direct SELECT not implemented');
+            throw new Error('Direct select operations not implemented. Please create the execute_sql function in Supabase.');
+          }
+          
+          throw new Error('SQL execution failed: execute_sql function not found in Supabase');
+        }
+        
+        // If the function exists, use it
+        const { data, error } = await supabase.rpc('execute_sql', {
+          sql_query: processedQuery,
+          params: params
+        });
+        
+        if (error) throw error;
+        return data || [];
+      } catch (rpcError) {
+        console.error('Error executing SQL via RPC:', rpcError);
+        throw rpcError;
+      }
+    } catch (error) {
+      console.error('SQL Error in all():', error.message);
+      console.error('Query:', query);
+      console.error('Params:', JSON.stringify(params));
+      throw error;
+    }
+  }
+
+  // Execute raw SQL (use with caution)
+  async function exec(sql) {
+    try {
+      const { error } = await supabase.rpc('exec_sql', {
+        query: sql
+      });
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('SQL Error in exec():', error.message);
+      throw error;
+    }
+  }
+
+  // Supabase exports
+  module.exports = {
+    supabase,
+    run,
+    get,
+    all,
+    exec
+  };
+} catch (initError) {
+  console.error('Fatal error initializing Supabase client:', initError);
+  process.exit(1);
+}

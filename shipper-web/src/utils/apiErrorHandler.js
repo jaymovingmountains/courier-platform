@@ -1,6 +1,7 @@
 /**
  * Utility for standardized API error handling across the application
  */
+import { getErrorMessage } from './api';
 
 /**
  * Processes an API error and returns a user-friendly message
@@ -96,7 +97,7 @@ export const getAuthConfig = (options = {}) => {
  * @param {Object} options - Additional options
  */
 export const handleFormError = (error, setStatus, setFieldError = null, options = {}) => {
-  const userMessage = handleApiError(error, options);
+  const userMessage = getErrorMessage(error);
   
   // Set the general form status message
   setStatus(userMessage);
@@ -107,5 +108,49 @@ export const handleFormError = (error, setStatus, setFieldError = null, options 
     Object.keys(fieldErrors).forEach(field => {
       setFieldError(field, fieldErrors[field]);
     });
+  }
+};
+
+/**
+ * Handles API errors for non-form components
+ * @param {Error} error - The error object from axios catch block
+ * @param {Function} setError - Function to set error state
+ * @param {Object} options - Additional options
+ */
+export const handleComponentError = (error, setError, options = {}) => {
+  const userMessage = getErrorMessage(error);
+  setError(userMessage);
+  
+  // Log error details to console
+  console.error('API Error:', {
+    type: options.operation || 'API operation',
+    message: userMessage,
+    status: error.response?.status,
+    data: error.response?.data,
+    ...options
+  });
+};
+
+/**
+ * Format validation errors from API for form display
+ * @param {Object} errors - Error object from API
+ * @param {Function} setFieldError - Formik setFieldError function
+ * @param {Function} setStatus - Formik setStatus function
+ */
+export const formatValidationErrors = (errors, setFieldError, setStatus) => {
+  if (!errors) return;
+  
+  // Handle field-specific errors
+  if (errors.fieldErrors) {
+    Object.entries(errors.fieldErrors).forEach(([field, message]) => {
+      setFieldError(field, Array.isArray(message) ? message[0] : message);
+    });
+  }
+  
+  // Handle general errors
+  if (errors.error || errors.message) {
+    setStatus(errors.error || errors.message);
+  } else if (!errors.fieldErrors) {
+    setStatus('An error occurred. Please check your input and try again.');
   }
 }; 

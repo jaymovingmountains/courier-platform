@@ -1,0 +1,27 @@
+[
+  {
+    "id": 3,
+    "vehicle_name": "TRANSIT1",
+    "license_plate": "WC4456"
+  },
+  {
+    "id": 4,
+    "vehicle_name": "Van 1",
+    "license_plate": "ABC123"
+  },
+  {
+    "id": 5,
+    "vehicle_name": "Truck 1",
+    "license_plate": "XYZ789"
+  },
+  {
+    "id": 6,
+    "vehicle_name": "Vehicle-6",
+    "license_plate": "LP-6-6473"
+  },
+  {
+    "id": 7,
+    "vehicle_name": "Vehicle-5",
+    "license_plate": "LP-5-6474"
+  }
+]

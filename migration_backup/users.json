@@ -1,0 +1,65 @@
+[
+  {
+    "id": 1,
+    "username": "testshipper",
+    "password": "$2b$10$15UAld1vAKTYBLdHCukt/uy3ftbj5FIzD3vkFZKg7oUUw98/xz9GO",
+    "role": "shipper",
+    "name": "testshipper",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 4,
+    "username": "Admin2",
+    "password": "$2b$10$9oFXYWcCKdXXxnb4OxxUSecX2Wpx5ME0Sc37GGgPFbdcd55gEm8uu",
+    "role": "admin",
+    "name": "Admin2",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 5,
+    "username": "Driver2",
+    "password": "$2b$10$538f1w7zNU3HX1Z4ULciaOsVcNkfO2t2NEF2S5YVONlhHKxKI1Psy",
+    "role": "driver",
+    "name": "Driver2",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 6,
+    "username": "Driver1",
+    "password": "$2b$10$543Leubd5RRwrepDx3KiYeO28s31MSuq2E.LqUr6SV3HLL.Att9s6",
+    "role": "driver",
+    "name": "John Doe",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 7,
+    "username": "shipper1",
+    "password": "$2b$10$udiGfSYkq.DSnjMQJC8rK.Y8kqO2e4asTiTbPcnVZG7kiPlJhkzzG",
+    "role": "shipper",
+    "name": "shipper1",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 8,
+    "username": "movingmountains",
+    "password": "$2b$10$QVAnYt0.thNuS.Fynr7SNOEBSUXDtxgV7gCU9/tGLdRlZ7pWBw8j6",
+    "role": "shipper",
+    "name": "movingmountains",
+    "email": null,
+    "phone": null
+  },
+  {
+    "id": 9,
+    "username": "adminuser",
+    "password": "$2b$10$pCDq0Lv8xlp1pRJnPgr.SOUVJqo1k.dPPEmah5Ax.CkgbeZ2vSTaG",
+    "role": "admin",
+    "name": "Admin User",
+    "email": null,
+    "phone": null
+  }
+]

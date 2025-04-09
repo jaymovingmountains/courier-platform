@@ -1,0 +1,169 @@
+/**
+ * This script adds database proxy endpoints to the server.js file
+ */
+const fs = require('fs');
+const path = require('path');
+
+// Path to the server.js file
+const SERVER_FILE = path.join(__dirname, 'server.js');
+
+// Check if server.js exists
+if (!fs.existsSync(SERVER_FILE)) {
+  console.error(`❌ Server file not found at ${SERVER_FILE}`);
+  process.exit(1);
+}
+
+// Read the server.js file
+let serverCode = fs.readFileSync(SERVER_FILE, 'utf8');
+
+// Check if database proxy endpoints already exist
+if (serverCode.includes('/db/run') && serverCode.includes('/db/get') && serverCode.includes('/db/all')) {
+  console.log('✅ Database proxy endpoints already exist in server.js');
+  process.exit(0);
+}
+
+// Define the database proxy middleware and endpoints
+const dbProxyCode = `
+// Database Proxy Middleware
+const databaseProxyAuth = (req, res, next) => {
+  // In production, we would use more secure authentication
+  // For dev purposes, we'll use a simple header check and token validation
+  const isProxy = req.headers['x-database-proxy'] === 'true';
+  const token = req.headers['x-admin-token'];
+  
+  // Validate the proxy token - should match the one in .env.development on local machine
+  // In production, use a more secure token management system
+  const validToken = process.env.DB_PROXY_AUTH_TOKEN || 'proxy-dev-token-123';
+  
+  if (!isProxy || token !== validToken) {
+    return res.status(401).json({ error: 'Unauthorized access to database proxy API' });
+  }
+  
+  next();
+};
+
+// Database Proxy Endpoints
+app.post('/db/run', databaseProxyAuth, async (req, res) => {
+  try {
+    const { sql, params = [] } = req.body;
+    console.log('[DB Proxy] Run:', sql);
+    
+    db.run(sql, params, function(err) {
+      if (err) {
+        console.error('[DB Proxy] Error:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.json({ 
+        lastID: this.lastID,
+        changes: this.changes
+      });
+    });
+  } catch (error) {
+    console.error('[DB Proxy] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/db/get', databaseProxyAuth, async (req, res) => {
+  try {
+    const { sql, params = [] } = req.body;
+    console.log('[DB Proxy] Get:', sql);
+    
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        console.error('[DB Proxy] Error:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.json(row || null);
+    });
+  } catch (error) {
+    console.error('[DB Proxy] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/db/all', databaseProxyAuth, async (req, res) => {
+  try {
+    const { sql, params = [] } = req.body;
+    console.log('[DB Proxy] All:', sql);
+    
+    db.all(sql, params, (err, rows) => {
+      if (err) {
+        console.error('[DB Proxy] Error:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.json(rows || []);
+    });
+  } catch (error) {
+    console.error('[DB Proxy] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/db/exec', databaseProxyAuth, async (req, res) => {
+  try {
+    const { sql } = req.body;
+    console.log('[DB Proxy] Exec:', sql);
+    
+    db.exec(sql, (err) => {
+      if (err) {
+        console.error('[DB Proxy] Error:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      
+      res.json({ success: true });
+    });
+  } catch (error) {
+    console.error('[DB Proxy] Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+`;
+
+// Find a good place to add the database proxy code
+const lastRouteIndex = serverCode.lastIndexOf('app.');
+if (lastRouteIndex === -1) {
+  console.error('❌ Could not find a good place to add database proxy endpoints');
+  process.exit(1);
+}
+
+// Find the end of the last route
+const lastRouteEnd = serverCode.indexOf('\n\n', lastRouteIndex);
+const insertPosition = lastRouteEnd !== -1 ? lastRouteEnd : serverCode.length;
+
+// Insert the database proxy code
+serverCode = serverCode.slice(0, insertPosition) + dbProxyCode + serverCode.slice(insertPosition);
+
+// Add DB_PROXY_AUTH_TOKEN to environment variables documentation
+if (!serverCode.includes('DB_PROXY_AUTH_TOKEN')) {
+  const envCommentRegex = /\/\/\s*Environment variables:/;
+  const envCommentMatch = serverCode.match(envCommentRegex);
+  
+  if (envCommentMatch) {
+    const envComment = envCommentMatch[0];
+    const envCommentIndex = serverCode.indexOf(envComment);
+    const envCommentEnd = serverCode.indexOf('\n\n', envCommentIndex);
+    
+    if (envCommentEnd !== -1) {
+      const newEnvComment = serverCode.slice(envCommentIndex, envCommentEnd) +
+        '\n// - DB_PROXY_AUTH_TOKEN: Authentication token for database proxy (default: proxy-dev-token-123)';
+      
+      serverCode = serverCode.slice(0, envCommentIndex) + newEnvComment + serverCode.slice(envCommentEnd);
+    }
+  }
+}
+
+// Write the updated server code back to the file
+fs.writeFileSync(SERVER_FILE, serverCode);
+console.log('✅ Successfully added database proxy endpoints to server.js');
+console.log(`
+NEXT STEPS:
+1. Set the DB_PROXY_AUTH_TOKEN environment variable on your Render server
+   - Add DB_PROXY_AUTH_TOKEN=proxy-dev-token-123 to your environment variables
+   - Or use a more secure random token (make sure it matches your local .env.development)
+2. Restart your Render server
+3. Run your local development server with: node start-dev-with-render-db.js
+`); 

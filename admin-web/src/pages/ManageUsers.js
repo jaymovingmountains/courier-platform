@@ -4,6 +4,7 @@ import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
 import axios from 'axios';
 import './ManageUsers.css';
+import { Link } from 'react-router-dom';
 
 const userSchema = Yup.object().shape({
   username: Yup.string()
@@ -158,6 +159,14 @@ const ManageUsers = () => {
             >
               Delete
             </button>
+            {row.original.role === 'shipper' && (
+              <Link
+                to={`/shipper-management/${row.original.id}`}
+                className="action-button manage"
+              >
+                Manage
+              </Link>
+            )}
           </div>
         )
       }

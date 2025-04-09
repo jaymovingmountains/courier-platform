@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "shipper_id": 1,
+    "name": "Jay",
+    "email": "jay@mml.com",
+    "phone": "2355664664",
+    "company": "1381003 bc ltd",
+    "address": "1776 Kelly Douglas",
+    "city": "Kamloops",
+    "postal_code": "V2C5S4",
+    "notes": null,
+    "created_at": "2025-02-26 02:03:20"
+  }
+]

@@ -1,0 +1,203 @@
+/**
+ * Database Proxy - Redirects database operations to the Render server
+ * This allows the local development environment to use the production database
+ */
+require('dotenv').config({ path: process.env.NODE_ENV === 'production' ? '.env' : '.env.development' });
+const axios = require('axios');
+
+// API URL from environment variables
+const API_URL = process.env.API_URL || 'https://courier-platform-backend.onrender.com';
+// Auth token for database proxy - should be set in .env.development
+const AUTH_TOKEN = process.env.DB_PROXY_AUTH_TOKEN || 'proxy-dev-token-123';
+
+// Create a proxy for database operations
+const db = {
+  // Mock database object for compatibility
+  serialize: (callback) => {
+    if (callback) callback();
+  },
+  close: () => {
+    console.log('Database connection closed (proxy)');
+  }
+};
+
+/**
+ * Make a request to the Render server API
+ * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
+ * @param {string} endpoint - API endpoint
+ * @param {Object} data - Request body for POST/PUT requests
+ * @param {Object} params - Query parameters
+ * @returns {Promise} - API response
+ */
+async function makeRequest(method, endpoint, data = null, params = null) {
+  try {
+    const url = `${API_URL}/${endpoint.replace(/^\//, '')}`;
+    
+    console.log(`[DB Proxy] ${method} ${url}`);
+    
+    const config = {
+      method,
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-database-proxy': 'true',
+        'x-admin-token': AUTH_TOKEN // Add authentication token
+      }
+    };
+    
+    if (data) {
+      config.data = data;
+    }
+    
+    if (params) {
+      config.params = params;
+    }
+    
+    const response = await axios(config);
+    return response.data;
+  } catch (error) {
+    console.error('[DB Proxy] Error:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Run a SQL query on the remote database via API
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @param {Function} callback - Callback function
+ */
+function run(sql, params, callback) {
+  // If callback is the second argument
+  if (typeof params === 'function') {
+    callback = params;
+    params = [];
+  }
+  
+  console.log('[DB Proxy] Run:', sql);
+  
+  makeRequest('POST', '/db/run', { sql, params })
+    .then(result => {
+      if (callback) callback(null, result);
+    })
+    .catch(error => {
+      if (callback) callback(error);
+    });
+}
+
+/**
+ * Get a single row from the remote database via API
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @param {Function} callback - Callback function
+ */
+function get(sql, params, callback) {
+  // If callback is the second argument
+  if (typeof params === 'function') {
+    callback = params;
+    params = [];
+  }
+  
+  console.log('[DB Proxy] Get:', sql);
+  
+  makeRequest('POST', '/db/get', { sql, params })
+    .then(result => {
+      if (callback) callback(null, result);
+    })
+    .catch(error => {
+      if (callback) callback(error);
+    });
+}
+
+/**
+ * Get multiple rows from the remote database via API
+ * @param {string} sql - SQL query
+ * @param {Array} params - Query parameters
+ * @param {Function} callback - Callback function
+ */
+function all(sql, params, callback) {
+  // If callback is the second argument
+  if (typeof params === 'function') {
+    callback = params;
+    params = [];
+  }
+  
+  console.log('[DB Proxy] All:', sql);
+  
+  makeRequest('POST', '/db/all', { sql, params })
+    .then(result => {
+      if (callback) callback(null, result);
+    })
+    .catch(error => {
+      if (callback) callback(error);
+    });
+}
+
+/**
+ * Run multiple SQL statements in the remote database via API
+ * @param {string} sql - SQL query
+ * @param {Function} callback - Callback function
+ */
+function exec(sql, callback) {
+  console.log('[DB Proxy] Exec:', sql);
+  
+  makeRequest('POST', '/db/exec', { sql })
+    .then(result => {
+      if (callback) callback(null, result);
+    })
+    .catch(error => {
+      if (callback) callback(error);
+    });
+}
+
+// Promise-based wrappers
+function runAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    run(sql, params, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
+}
+
+function getAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    get(sql, params, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
+}
+
+function allAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    all(sql, params, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
+}
+
+function execAsync(sql) {
+  return new Promise((resolve, reject) => {
+    exec(sql, (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
+}
+
+// Initialize connection
+console.log(`[DB Proxy] Connected to remote database at ${API_URL}`);
+
+module.exports = {
+  db,
+  run,
+  get,
+  all,
+  exec,
+  runAsync,
+  getAsync,
+  allAsync,
+  execAsync
+}; 

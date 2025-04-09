@@ -119,8 +119,11 @@ class APIClient {
     }
     
     func fetch<T: Decodable>(endpoint: String, method: String = "GET", body: Data? = nil) async throws -> T {
-        guard let url = URL(string: "\(APIConstants.baseURL)\(endpoint)") else {
-            print("📡 ERROR: Invalid URL: \(APIConstants.baseURL)\(endpoint)")
+        let urlString = "\(APIConstants.baseURL)\(endpoint)"
+        print("🔍 CONNECTING TO SERVER: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            print("📡 ERROR: Invalid URL: \(urlString)")
             throw APIError.invalidURL
         }
         
@@ -137,19 +140,26 @@ class APIClient {
         
         if let body = body {
             request.httpBody = body
+            // Print the request body for debugging
+            if let bodyString = String(data: body, encoding: .utf8) {
+                print("📡 Request Body: \(bodyString)")
+            }
         }
         
         // Log the request
+        print("📡 MAKING \(method) REQUEST TO: \(urlString)")
         logRequest(request, endpoint: endpoint)
         
         do {
+            print("📡 AWAITING RESPONSE FROM SERVER...")
             let (data, response) = try await session.data(for: request)
             
             // Log the response
+            print("📡 RECEIVED RESPONSE FROM SERVER!")
             logResponse(response as? HTTPURLResponse, data: data, error: nil)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("📡 ERROR: Response was not HTTPURLResponse")
+                print("📡 ERROR: Invalid response type")
                 throw APIError.unknown
             }
             
@@ -159,7 +169,9 @@ class APIClient {
                     // Try to decode with more detailed error handling
                     let decoder = JSONDecoder()
                     do {
-                        return try decoder.decode(T.self, from: data)
+                        let result = try decoder.decode(T.self, from: data)
+                        print("📡 ✅ SUCCESS: Successfully decoded response")
+                        return result
                     } catch let decodingError as DecodingError {
                         // Provide detailed information about the decoding error
                         print("📡 DECODING ERROR:")

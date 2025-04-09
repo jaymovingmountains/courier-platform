@@ -1,11 +1,14 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useNavigate } from 'react-router-dom';
-import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import Dashboard from './pages/Dashboard';
 import ManageUsers from './pages/ManageUsers';
 import ApproveShipments from './pages/ApproveShipments';
 import ProvideQuotes from './pages/ProvideQuotes';
 import VehicleManagement from './pages/VehicleManagement';
+import AdminSetup from './pages/AdminSetup';
+import ShipperManagement from './pages/ShipperManagement';
+import { isAuthenticated, logout as apiLogout } from './utils/api';
 import './App.css';
 
 // Create Authentication Context
@@ -13,7 +16,7 @@ export const AuthContext = createContext(null);
 
 // Navigation component
 const Navigation = () => {
-  const { logout } = useContext(AuthContext);
+  const { logout, user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -24,6 +27,9 @@ const Navigation = () => {
   return (
     <nav className="navbar">
       <div className="nav-brand">Admin Portal</div>
+      <div className="nav-user">
+        {user && <span>Welcome, {user.name || user.username}</span>}
+      </div>
       <ul className="nav-links">
         <li><Link to="/dashboard">Dashboard</Link></li>
         <li><Link to="/manage-users">Manage Users</Link></li>
@@ -41,28 +47,72 @@ const Navigation = () => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
+  const [authState, setAuthState] = useState({
+    isAuthenticated: false,
+    user: null,
+    loading: true
+  });
 
-  const login = (token) => {
-    // Decode JWT to get user role
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(window.atob(base64));
+  // Check authentication status on app load
+  useEffect(() => {
+    const checkAuth = () => {
+      const authenticated = isAuthenticated();
+      
+      if (authenticated) {
+        // Get user info from localStorage
+        try {
+          const userStr = localStorage.getItem('admin-user');
+          const user = userStr ? JSON.parse(userStr) : null;
+          
+          if (user && user.role === 'admin') {
+            setAuthState({
+              isAuthenticated: true,
+              user,
+              loading: false
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+        }
+      }
+      
+      // If we get here, user is not authenticated or not an admin
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        loading: false
+      });
+    };
     
-    localStorage.setItem('token', token);
-    setUser({ role: payload.role });
-    setIsAuthenticated(true);
+    checkAuth();
+  }, []);
+
+  const login = (userData) => {
+    setAuthState({
+      isAuthenticated: true,
+      user: userData,
+      loading: false
+    });
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    setUser(null);
-    setIsAuthenticated(false);
+    apiLogout(); // This handles clearing localStorage and redirecting
+    setAuthState({
+      isAuthenticated: false,
+      user: null,
+      loading: false
+    });
   };
 
   // Protected Route wrapper
   const ProtectedRoute = ({ children }) => {
+    const { isAuthenticated, loading, user } = authState;
+    
+    if (loading) {
+      return <div className="loading-container">Loading...</div>;
+    }
+    
     if (!isAuthenticated) {
       return <Navigate to="/login" replace />;
     }
@@ -75,20 +125,39 @@ function App() {
     return children;
   };
 
+  // If still loading auth state, show loading indicator
+  if (authState.loading) {
+    return <div className="loading-container">Loading...</div>;
+  }
+
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, user }}>
+    <AuthContext.Provider value={{ 
+      isAuthenticated: authState.isAuthenticated, 
+      user: authState.user,
+      login, 
+      logout 
+    }}>
       <Router>
         <div className="App">
-          {isAuthenticated && <Navigation />}
+          {authState.isAuthenticated && <Navigation />}
 
           <div className="content">
             <Routes>
               <Route 
                 path="/login" 
                 element={
-                  isAuthenticated ? 
+                  authState.isAuthenticated ? 
                     <Navigate to="/dashboard" replace /> : 
-                    <Login />
+                    <AdminLogin />
+                } 
+              />
+              
+              <Route 
+                path="/setup" 
+                element={
+                  authState.isAuthenticated ? 
+                    <Navigate to="/dashboard" replace /> : 
+                    <AdminSetup />
                 } 
               />
               
@@ -137,7 +206,21 @@ function App() {
                 }
               />
 
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/shipper-management/:id"
+                element={
+                  authState.isAuthenticated ? (
+                    <>
+                      <Navigation />
+                      <ShipperManagement />
+                    </>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+
+              <Route path="/" element={<Navigate to={authState.isAuthenticated ? "/dashboard" : "/login"} replace />} />
             </Routes>
           </div>
         </div>

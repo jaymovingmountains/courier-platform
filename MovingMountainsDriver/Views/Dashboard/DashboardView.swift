@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
@@ -18,11 +19,21 @@ struct DashboardView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color(.systemGroupedBackground)
-                    .edgesIgnoringSafeArea(.all)
-                
+                Color(UIColor.systemGroupedBackground).edgesIgnoringSafeArea(.all)
                 ScrollView {
                     VStack(spacing: 20) {
+                        // Personalized greeting
+                        if let username = authService.currentUser?.username {
+                            Text("Hi, \(username)")
+                                .font(.title2)
+                                .fontWeight(.medium)
+                                .foregroundColor(.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal)
+                                .padding(.top, 8)
+                                .padding(.bottom, -8) // Reduce spacing between greeting and next section
+                        }
+                        
                         // Active jobs section
                         VStack(alignment: .leading) {
                             HStack {
@@ -96,11 +107,10 @@ struct DashboardView: View {
             .navigationTitle("Dashboard")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
+                    Button("Logout") {
                         authService.logout()
-                    }) {
-                        Text("Logout")
                     }
+                    .foregroundColor(.blue)
                 }
             }
             .alert(isPresented: Binding<Bool>(
@@ -806,44 +816,6 @@ struct DashboardLoadingView: View {
             .background(Color(.systemBackground))
             .cornerRadius(12)
             .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 5)
-        }
-    }
-}
-
-struct StatusBadge: View {
-    let status: String
-    
-    var body: some View {
-        Text(status.replacingOccurrences(of: "_", with: " ").capitalized)
-            .font(.caption)
-            .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(backgroundColor)
-            .foregroundColor(.white)
-            .cornerRadius(8)
-    }
-    
-    private var backgroundColor: Color {
-        switch status {
-        case "pending":
-            return .yellow
-        case "approved", "quoted":
-            return .orange
-        case "assigned":
-            return .blue
-        case "picked_up":
-            return .purple
-        case "in_transit":
-            return .indigo
-        case "delivered":
-            return .mint
-        case "completed":
-            return .green
-        case "cancelled":
-            return .red
-        default:
-            return .gray
         }
     }
 }

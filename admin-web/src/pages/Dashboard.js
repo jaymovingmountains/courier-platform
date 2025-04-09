@@ -13,7 +13,6 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [printingLabel, setPrintingLabel] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -61,7 +60,6 @@ const Dashboard = () => {
   // Handle printing shipping label
   const handlePrintLabel = async (shipmentId) => {
     try {
-      setPrintingLabel(true);
       const token = localStorage.getItem('token');
       
       // Get the shipping label PDF
@@ -88,12 +86,9 @@ const Dashboard = () => {
           printWindow.print();
         });
       }
-      
-      setPrintingLabel(false);
     } catch (err) {
       console.error('Error printing shipping label:', err);
       alert('Failed to print shipping label. Please try again.');
-      setPrintingLabel(false);
     }
   };
 

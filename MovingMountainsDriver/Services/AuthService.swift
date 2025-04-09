@@ -52,6 +52,7 @@ final class AuthService: ObservableObject {
     @Published var currentUser: User?
     @Published var authError: String?
     @Published var tokenExpirationDate: Date?
+    @Published var diagnosticMessage: String? // Add diagnostic message for debugging
     
     private let keychainTokenKey = "com.movingmountains.driverapp.token"
     private var isRefreshing = false
@@ -86,10 +87,18 @@ final class AuthService: ObservableObject {
     // Function renamed to make it clear we're using username, not email
     func login(username: String, password: String) async {
         authError = nil // Clear previous errors
+        diagnosticMessage = nil // Clear diagnostic messages
+        
+        print("🔐 Starting login process for username: \(username)")
+        print("🔐 Using server URL: \(APIConstants.baseURL)")
+        
+        // Add diagnostic output
+        diagnosticMessage = "Attempting login with username: \(username)"
         
         // STEP 1: Get a token from the main login endpoint
         guard let loginUrl = URL(string: "\(APIConstants.baseURL)/login") else {
             authError = "Invalid URL configuration"
+            diagnosticMessage = "❌ Error: Invalid URL configuration for \(APIConstants.baseURL)/login"
             return
         }
         
@@ -98,6 +107,8 @@ final class AuthService: ObservableObject {
             "username": username,
             "password": password
         ]
+        
+        diagnosticMessage = "Connecting to \(loginUrl.absoluteString)..."
         
         do {
             // Convert credentials to JSON data
@@ -114,7 +125,11 @@ final class AuthService: ObservableObject {
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("driver", forHTTPHeaderField: "x-portal")
             
+            // Add request timeout - increasing from default to handle slower connections
+            request.timeoutInterval = 30
+            
             print("🔐 Attempting login to: \(loginUrl)")
+            diagnosticMessage = "Sending login request to server..."
             
             // Perform the network request
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -122,12 +137,17 @@ final class AuthService: ObservableObject {
             // Get the response as string for debugging
             let responseString = String(data: data, encoding: .utf8) ?? "No response data"
             print("🔐 Login response: \(responseString)")
+            diagnosticMessage = "Received response from server"
             
             // Get HTTP status code
             guard let httpResponse = response as? HTTPURLResponse else {
                 authError = "Invalid server response"
+                diagnosticMessage = "❌ Error: Server returned invalid response format"
                 return
             }
+            
+            print("🔐 Login response status code: \(httpResponse.statusCode)")
+            diagnosticMessage = "Server returned status code: \(httpResponse.statusCode)"
             
             // If login successful, proceed to driver validation
             if httpResponse.statusCode == 200 {
@@ -137,6 +157,7 @@ final class AuthService: ObservableObject {
                     
                     // Store the token and update authentication state
                     let token = loginResponse.token
+                    diagnosticMessage = "✅ Successfully received authentication token"
                     
                     // Validate the token before storing
                     do {
@@ -146,10 +167,25 @@ final class AuthService: ObservableObject {
                         if let user = loginResponse.user {
                             self.currentUser = user
                             print("🔐 User information received in login response: ID \(user.id), username: \(user.username)")
+                            diagnosticMessage = "✅ Authentication successful for user ID: \(user.id), username: \(user.username)"
+                            
+                            // Store username in UserDefaults for retrieval by DashboardViewModel
+                            UserDefaults.standard.set(user.id, forKey: UserDefaultsKeys.userId)
+                            UserDefaults.standard.set(user.username, forKey: UserDefaultsKeys.username)
                         } else {
                             // If user not in response, try to decode from token
                             print("🔐 No user information in response, decoding from token")
                             decodeUserFromToken(token)
+                            
+                            if let currentUser = self.currentUser {
+                                diagnosticMessage = "✅ Authentication successful, user extracted from token: \(currentUser.username)"
+                                
+                                // Store username in UserDefaults for retrieval by DashboardViewModel
+                                UserDefaults.standard.set(currentUser.id, forKey: UserDefaultsKeys.userId)
+                                UserDefaults.standard.set(currentUser.username, forKey: UserDefaultsKeys.username)
+                            } else {
+                                diagnosticMessage = "⚠️ Authentication successful but couldn't extract user details"
+                            }
                         }
                         
                         isAuthenticated = true
@@ -157,10 +193,12 @@ final class AuthService: ObservableObject {
                     } catch let error as TokenError {
                         print("🔐 Received invalid token during login: \(error.message)")
                         authError = "Authentication failed: \(error.message)"
+                        diagnosticMessage = "❌ Error: \(error.message)"
                     }
                 } catch {
                     print("🔐 Failed to decode login response: \(error)")
                     authError = "Server returned invalid data. Please try again."
+                    diagnosticMessage = "❌ Error: Failed to decode server response: \(error.localizedDescription)"
                 }
             } else {
                 // Try to decode error message
@@ -168,16 +206,126 @@ final class AuthService: ObservableObject {
                     let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
                     authError = errorResponse.error
                     print("🔐 Login failed with error: \(errorResponse.error)")
+                    diagnosticMessage = "❌ Error: \(errorResponse.error)"
                 } catch {
                     // Fallback error message if we can't parse the server response
                     let errorMessage = "Login failed with status code: \(httpResponse.statusCode)"
                     authError = errorMessage
                     print("🔐 \(errorMessage)")
+                    diagnosticMessage = "❌ Error: \(errorMessage)"
                 }
             }
         } catch {
             print("🔐 Login network error: \(error)")
             authError = "Connection error: \(error.localizedDescription)"
+            diagnosticMessage = "❌ Network error: \(error.localizedDescription)"
+        }
+    }
+    
+    // Add a diagnostic authentication function that can be called directly to test credentials
+    func testAuthentication(username: String, password: String) async -> String {
+        diagnosticMessage = nil // Clear diagnostic messages
+        
+        print("🧪 TESTING: Authentication test starting for username: \(username)")
+        diagnosticMessage = "🧪 Starting authentication test"
+        
+        // STEP 1: Attempt to connect to the health endpoint to verify server availability
+        guard let healthUrl = URL(string: "\(APIConstants.baseURL)/health") else {
+            return "❌ ERROR: Invalid health URL configuration"
+        }
+        
+        diagnosticMessage = "Testing server connection..."
+        
+        do {
+            let (_, healthResponse) = try await URLSession.shared.data(for: URLRequest(url: healthUrl))
+            
+            guard let httpHealthResponse = healthResponse as? HTTPURLResponse else {
+                return "❌ ERROR: Invalid health check response format"
+            }
+            
+            if httpHealthResponse.statusCode == 200 {
+                diagnosticMessage = "✅ Server is reachable (health check passed)"
+            } else {
+                return "❌ ERROR: Server health check failed with status code: \(httpHealthResponse.statusCode)"
+            }
+        } catch {
+            return "❌ ERROR: Server connection test failed: \(error.localizedDescription)"
+        }
+        
+        // STEP 2: Test authentication with provided credentials
+        guard let loginUrl = URL(string: "\(APIConstants.baseURL)/login") else {
+            return "❌ ERROR: Invalid login URL configuration"
+        }
+        
+        diagnosticMessage = "Testing authentication with username: \(username)..."
+        
+        let credentials: [String: String] = [
+            "username": username,
+            "password": password
+        ]
+        
+        do {
+            let jsonData = try JSONSerialization.data(withJSONObject: credentials)
+            
+            var request = URLRequest(url: loginUrl)
+            request.httpMethod = "POST"
+            request.httpBody = jsonData
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.addValue("driver", forHTTPHeaderField: "x-portal")
+            request.timeoutInterval = 30
+            
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                return "❌ ERROR: Invalid authentication response format"
+            }
+            
+            // Get response as string for detailed debugging
+            let responseString = String(data: data, encoding: .utf8) ?? "No response data"
+            
+            // Process response
+            if httpResponse.statusCode == 200 {
+                // Success path
+                do {
+                    let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
+                    
+                    try validateToken(loginResponse.token)
+                    storeToken(loginResponse.token)
+                    
+                    if let user = loginResponse.user {
+                        self.currentUser = user
+                        UserDefaults.standard.set(user.id, forKey: UserDefaultsKeys.userId)
+                        UserDefaults.standard.set(user.username, forKey: UserDefaultsKeys.username)
+                        isAuthenticated = true
+                        
+                        return "✅ SUCCESS: Authentication successful for user ID: \(user.id), username: \(user.username)"
+                    } else {
+                        decodeUserFromToken(loginResponse.token)
+                        
+                        if let currentUser = self.currentUser {
+                            UserDefaults.standard.set(currentUser.id, forKey: UserDefaultsKeys.userId)
+                            UserDefaults.standard.set(currentUser.username, forKey: UserDefaultsKeys.username)
+                            isAuthenticated = true
+                            
+                            return "✅ SUCCESS: Authentication successful, user extracted from token: \(currentUser.username)"
+                        } else {
+                            return "⚠️ WARNING: Authentication succeeded but no user details were found in token"
+                        }
+                    }
+                } catch {
+                    return "❌ ERROR: Authentication succeeded but token processing failed: \(error.localizedDescription)\nRaw Response: \(responseString)"
+                }
+            } else {
+                // Error path
+                do {
+                    let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: data)
+                    return "❌ ERROR: Authentication failed: \(errorResponse.error)\nStatus Code: \(httpResponse.statusCode)"
+                } catch {
+                    return "❌ ERROR: Authentication failed with status code: \(httpResponse.statusCode)\nRaw Response: \(responseString)"
+                }
+            }
+        } catch {
+            return "❌ ERROR: Network error during authentication test: \(error.localizedDescription)"
         }
     }
     
@@ -188,12 +336,23 @@ final class AuthService: ObservableObject {
             return
         }
         
+        print("🔐 Validating driver token at: \(driverUrl)")
+        print("🔐 Token (first 10 chars): \(String(token.prefix(10)))...")
+        
         var request = URLRequest(url: driverUrl)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         
-        print("🔐 Validating driver token at: \(driverUrl)")
+        // Print request headers for debugging
+        print("🔐 Request headers:")
+        request.allHTTPHeaderFields?.forEach { key, value in
+            if key == "Authorization" {
+                print("🔐   \(key): Bearer \(String(value.dropFirst(7).prefix(10)))...")
+            } else {
+                print("🔐   \(key): \(value)")
+            }
+        }
         
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
@@ -205,6 +364,14 @@ final class AuthService: ObservableObject {
             guard let httpResponse = response as? HTTPURLResponse else {
                 authError = "Invalid server response"
                 return
+            }
+            
+            print("🔐 Driver validation response status: \(httpResponse.statusCode)")
+            
+            // Print response headers for debugging
+            print("🔐 Response headers:")
+            httpResponse.allHeaderFields.forEach { key, value in
+                print("🔐   \(key): \(value)")
             }
             
             if httpResponse.statusCode == 200 {
@@ -432,10 +599,14 @@ final class AuthService: ObservableObject {
         SecItemAdd(query as CFDictionary, nil)
         
         print("🔐 Token stored in keychain")
+        
+        // Also store in UserDefaults for easy access
+        UserDefaults.standard.set(token, forKey: UserDefaultsKeys.authToken)
     }
     
     // Retrieve JWT token from Keychain
     nonisolated func retrieveToken() -> String? {
+        // First try from Keychain
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainTokenKey,
@@ -453,7 +624,8 @@ final class AuthService: ObservableObject {
             }
         }
         
-        return nil
+        // Fallback to UserDefaults if keychain fails
+        return UserDefaults.standard.string(forKey: UserDefaultsKeys.authToken)
     }
     
     // Decode user information from JWT token
@@ -544,12 +716,19 @@ final class AuthService: ObservableObject {
         
         SecItemDelete(query as CFDictionary)
         
+        // Remove from UserDefaults too
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.authToken)
+        
         // Update UI on main actor
         Task { @MainActor in
             print("🔐 User logged out, token removed")
             self.isAuthenticated = false
             self.currentUser = nil
             self.tokenExpirationDate = nil
+            
+            // Clear user ID and username from UserDefaults
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.userId)
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.username)
         }
     }
 } 

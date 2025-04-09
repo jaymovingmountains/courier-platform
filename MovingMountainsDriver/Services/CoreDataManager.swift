@@ -543,7 +543,15 @@ class CoreDataManager {
             deliveryAddress: deliveryAddress,
             createdAt: shipment.createdAt ?? Date(),
             updatedAt: Date(),
-            estimatedDeliveryTime: nil
+            estimatedDeliveryTime: nil,
+            shipperId: Int(shipment.shipperId),
+            driverId: shipment.driverId > 0 ? Int(shipment.driverId) : nil,
+            vehicleId: shipment.vehicleId > 0 ? Int(shipment.vehicleId) : nil,
+            vehicleName: shipment.vehicle?.vehicleName,
+            licensePlate: shipment.vehicle?.licensePlate,
+            shipmentType: shipment.shipmentType,
+            quoteAmount: shipment.quoteAmount,
+            province: shipment.province
         )
     }
     

@@ -1,7 +1,5 @@
-import { handleApiError, getAuthConfig } from '../utils/apiErrorHandler';
-
-// Base API URL - centralized for consistency
-const API_BASE_URL = 'http://localhost:3001/api';
+import { handleApiError } from '../utils/apiErrorHandler';
+import { getApiUrl, getAuthConfig } from '../utils/api';
 
 /**
  * Service to handle notifications API calls
@@ -28,7 +26,7 @@ const NotificationService = {
       
       // Make API call using our auth config utility
       const response = await fetch(
-        `${API_BASE_URL}/notifications${queryString}`, 
+        getApiUrl(`api/notifications${queryString}`), 
         getAuthConfig()
       );
       
@@ -65,7 +63,7 @@ const NotificationService = {
       
       // Make API call using our auth config utility
       const response = await fetch(
-        `${API_BASE_URL}/notifications/count`, 
+        getApiUrl('api/notifications/count'), 
         getAuthConfig()
       );
       
@@ -106,7 +104,7 @@ const NotificationService = {
       console.log(`Marking ${notificationIds.length} notifications as read: ${notificationIds.join(', ')}`);
       
       // Make API call with auth config and body
-      const response = await fetch(`${API_BASE_URL}/notifications/read`, {
+      const response = await fetch(getApiUrl('api/notifications/read'), {
         method: 'PUT',
         ...getAuthConfig(),
         body: JSON.stringify({ notification_ids: notificationIds })
@@ -147,7 +145,7 @@ const NotificationService = {
       console.log('Marking all notifications as read');
       
       // Make API call with auth config
-      const response = await fetch(`${API_BASE_URL}/notifications/read-all`, {
+      const response = await fetch(getApiUrl('api/notifications/read-all'), {
         method: 'PUT',
         ...getAuthConfig()
       });
@@ -175,4 +173,4 @@ const NotificationService = {
   }
 };
 
-export default NotificationService; 
+export default NotificationService;

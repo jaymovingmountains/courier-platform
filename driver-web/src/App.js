@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import './App.css';
 import Navbar from './components/Navbar';
 import MapTest from './components/MapTest';
+import { api, getAuthConfig } from './utils/api';
 
 // Import pages
 import Login from './pages/Login';
@@ -89,7 +90,7 @@ function App() {
   // Fetch active job for the driver
   const fetchActiveJob = async (token) => {
     try {
-      const response = await axios.get('http://localhost:3001/shipments', {
+      const response = await api.get('/shipments', {
         headers: {
           Authorization: `Bearer ${token}`
         }

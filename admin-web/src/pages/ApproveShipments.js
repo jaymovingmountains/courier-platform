@@ -19,59 +19,18 @@ const ApproveShipments = () => {
       const response = await axios.get('http://localhost:3001/shipments', {
         headers: {
           Authorization: `Bearer ${token}`,
+        },
+        params: {
+          status: 'quoted'
         }
       });
-      const quotedShipments = response.data.filter(shipment => shipment.status === 'quoted');
-      setShipments(quotedShipments);
-      
-      // Initialize selections state for each shipment
-      const initialSelections = {};
-      quotedShipments.forEach(shipment => {
-        initialSelections[shipment.id] = {
-          driver_id: '',
-          vehicle_id: ''
-        };
-      });
-      setSelections(initialSelections);
-      
+      setShipments(response.data);
       setError(null);
     } catch (err) {
       setError('Failed to fetch shipments. Please try again.');
       console.error('Error fetching shipments:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchDrivers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/users', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      // Filter users to only include drivers
-      const driversList = response.data.filter(user => user.role === 'driver');
-      setDrivers(driversList);
-    } catch (err) {
-      console.error('Error fetching drivers:', err);
-      setError('Failed to fetch drivers. Please try again.');
-    }
-  };
-
-  const fetchVehicles = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3001/vehicles', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        }
-      });
-      setVehicles(response.data);
-    } catch (err) {
-      console.error('Error fetching vehicles:', err);
-      setError('Failed to fetch vehicles. Please try again.');
     }
   };
 

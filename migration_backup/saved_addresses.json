@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "shipper_id": 7,
+    "address_name": "Warehouse",
+    "address": "7480 Hopcott Rd ",
+    "city": "Delta",
+    "postal_code": "V4G1B6",
+    "province": "BC",
+    "is_default": 1,
+    "is_pickup": 1,
+    "created_at": "2025-03-16 21:51:15"
+  }
+]

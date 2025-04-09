@@ -11,22 +11,7 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
 const { generateInvoiceFromDbData, calculateTaxes } = require('./utils/invoiceGenerator');
-
-// Ensure JWT_SECRET is available
-if (!process.env.JWT_SECRET) {
-  console.warn('WARNING: JWT_SECRET environment variable not set. Using default secret for development only.');
-  console.warn('This is not secure for production. Please set JWT_SECRET environment variable.');
-}
-
-// Define the JWT_SECRET after the warning
-const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
-console.log('JWT configuration initialized');
-
-// Create JWT middleware with configuration
-const jwtMiddleware = jwt({ 
-  secret: JWT_SECRET, 
-  algorithms: ['HS256'] 
-});
+const { supabase } = require('./database');
 
 // Helper function to validate Canadian province codes
 const validateProvinceCode = (province) => {
@@ -141,6 +126,7 @@ async function markNotificationsAsRead(shipperId, notificationIds) {
 
 const app = express();
 const port = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
 
 // Logging middleware for production
 app.use((req, res, next) => {
@@ -283,6 +269,15 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    const portalType = req.headers['x-portal'];
+
+    // Log login attempt with portal type
+    console.log('Login attempt:', { username, portalType });
+
+    // Validate input
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
 
     // Get user from database
     const user = await get('SELECT id, username, password, role, name FROM users WHERE username = ?', [username]);
@@ -298,8 +293,17 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    // For admin portal, verify role
+    if (portalType === 'admin' && user.role !== 'admin') {
+      console.log('Login failed: Invalid role for admin portal', {
+        userRole: user.role,
+        requiredRole: 'admin'
+      });
+      return res.status(403).json({ error: 'Access denied. Only administrators can log in to this portal.' });
+    }
+
     // For shipper portal, verify role
-    if (req.headers['x-portal'] === 'shipper' && user.role !== 'shipper') {
+    if (portalType === 'shipper' && user.role !== 'shipper') {
       console.log('Login failed: Invalid role for shipper portal', {
         userRole: user.role,
         requiredRole: 'shipper'
@@ -308,7 +312,7 @@ app.post('/login', async (req, res) => {
     }
 
     // For driver portal, verify role
-    if (req.headers['x-portal'] === 'driver' && user.role !== 'driver') {
+    if (portalType === 'driver' && user.role !== 'driver') {
       console.log('Login failed: Invalid role for driver portal', {
         userRole: user.role,
         requiredRole: 'driver'
@@ -327,13 +331,23 @@ app.post('/login', async (req, res) => {
       JWT_SECRET,
       { expiresIn: process.env.NODE_ENV === 'production' ? '12h' : '24h' }
     );
+    
     console.log('Login successful:', { 
       username: user.username, 
       role: user.role,
       name: user.name
     });
 
-    res.json({ token });
+    // Return user info along with token
+    res.json({ 
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        name: user.name || user.username
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'An error occurred during login' });
@@ -359,7 +373,14 @@ app.post('/shipments', authorize(['shipper']), async (req, res) => {
       delivery_city,
       delivery_postal_code,
       quote_amount,
-      province
+      province,
+      weight,
+      length,
+      width,
+      height,
+      dimension_unit,
+      description,
+      estimated_delivery_time
     } = req.body;
 
     // Validate required fields
@@ -379,10 +400,24 @@ app.post('/shipments', authorize(['shipper']), async (req, res) => {
       });
     }
 
+    // Generate unique tracking number (Format: MM-YEAR-RANDOMNUMBER)
+    const year = new Date().getFullYear();
+    const randomNum = Math.floor(100000 + Math.random() * 900000); // 6-digit number
+    const trackingNumber = `MM-${year}-${randomNum}`;
+
+    // Current timestamp for created_at and updated_at
+    const timestamp = new Date().toISOString();
+
     const result = await run(
       `INSERT INTO shipments (
         shipper_id,
         shipment_type,
+        tracking_number,
+        weight,
+        length,
+        width,
+        height,
+        dimension_unit,
         pickup_address,
         pickup_city,
         pickup_postal_code,
@@ -391,11 +426,21 @@ app.post('/shipments', authorize(['shipper']), async (req, res) => {
         delivery_postal_code,
         quote_amount,
         province,
-        status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        status,
+        created_at,
+        updated_at,
+        estimated_delivery_time,
+        description
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`,
       [
         req.auth.id,
         shipment_type,
+        trackingNumber,
+        weight || null,
+        length || null,
+        width || null,
+        height || null,
+        dimension_unit || null,
         pickup_address,
         pickup_city,
         pickup_postal_code,
@@ -404,10 +449,18 @@ app.post('/shipments', authorize(['shipper']), async (req, res) => {
         delivery_postal_code,
         quote_amount,
         province.toUpperCase(),
+        timestamp,
+        timestamp,
+        estimated_delivery_time || null,
+        description || null
       ]
     );
 
-    res.status(201).json({ id: result.id });
+    // Return the newly created shipment with its tracking number
+    res.status(201).json({ 
+      id: result.id, 
+      tracking_number: trackingNumber
+    });
   } catch (error) {
     console.error('Create shipment error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -417,7 +470,7 @@ app.post('/shipments', authorize(['shipper']), async (req, res) => {
 // Get shipments (Role-based filtering)
 app.get('/shipments', async (req, res) => {
   try {
-    // Use explicit column selection to ensure province is included
+    // Now select all columns since they exist in the database
     let query = `
       SELECT 
         id, 
@@ -425,6 +478,12 @@ app.get('/shipments', async (req, res) => {
         driver_id, 
         vehicle_id, 
         shipment_type, 
+        tracking_number,
+        weight,
+        length,
+        width,
+        height,
+        dimension_unit,
         pickup_address, 
         pickup_city, 
         pickup_postal_code, 
@@ -434,7 +493,14 @@ app.get('/shipments', async (req, res) => {
         status, 
         quote_amount, 
         created_at,
-        province
+        updated_at,
+        estimated_delivery_time,
+        description,
+        province,
+        invoiceUrl,
+        tax_amount,
+        total_amount,
+        payment_status
       FROM shipments 
       WHERE 1=1`;
     const params = [];
@@ -457,10 +523,12 @@ app.get('/shipments', async (req, res) => {
 
     const shipments = await all(query, params);
     
-    // Ensure province is handled gracefully if NULL
+    // Fill in any null values with appropriate defaults
     const formattedShipments = shipments.map(shipment => ({
       ...shipment,
-      province: shipment.province || null
+      province: shipment.province || null,
+      tracking_number: shipment.tracking_number || `MM-${new Date().getFullYear()}-${shipment.id}`,
+      updated_at: shipment.updated_at || shipment.created_at
     }));
     
     res.json(formattedShipments);
@@ -477,7 +545,7 @@ app.get('/shipments/:id', async (req, res) => {
     console.log('User role:', req.auth.role);
     console.log('User ID:', req.auth.id);
 
-    // Use explicit column selection to ensure province is included
+    // Now select all columns since they exist in the database
     let query = `
       SELECT 
         id, 
@@ -485,6 +553,12 @@ app.get('/shipments/:id', async (req, res) => {
         driver_id, 
         vehicle_id, 
         shipment_type, 
+        tracking_number,
+        weight,
+        length,
+        width,
+        height,
+        dimension_unit,
         pickup_address, 
         pickup_city, 
         pickup_postal_code, 
@@ -494,7 +568,14 @@ app.get('/shipments/:id', async (req, res) => {
         status, 
         quote_amount, 
         created_at,
-        province
+        updated_at,
+        estimated_delivery_time,
+        description,
+        province,
+        invoiceUrl,
+        tax_amount,
+        total_amount,
+        payment_status
       FROM shipments 
       WHERE id = ?`;
     const params = [req.params.id];
@@ -528,10 +609,12 @@ app.get('/shipments/:id', async (req, res) => {
       return res.status(404).json({ error: 'Shipment not found' });
     }
     
-    // Ensure province is handled gracefully if NULL
+    // Fill in any null values with appropriate defaults
     const formattedShipment = {
       ...shipment,
-      province: shipment.province || null
+      province: shipment.province || null,
+      tracking_number: shipment.tracking_number || `MM-${new Date().getFullYear()}-${shipment.id}`,
+      updated_at: shipment.updated_at || shipment.created_at
     };
     
     res.json(formattedShipment);
@@ -560,8 +643,11 @@ app.put('/shipments/:id', async (req, res) => {
         if (shipment.driver_id !== req.auth.id) {
           return res.status(403).json({ error: 'Forbidden' });
         }
-        // Drivers can only update status
-        req.body = { status: req.body.status };
+        // Drivers can update package dimensions and status
+        const allowedDriverFields = ['status', 'weight', 'length', 'width', 'height', 'dimension_unit', 'description'];
+        req.body = Object.fromEntries(
+          Object.entries(req.body).filter(([key]) => allowedDriverFields.includes(key))
+        );
         break;
       case 'admin':
         // Admins can update anything
@@ -574,6 +660,9 @@ app.put('/shipments/:id', async (req, res) => {
     const oldStatus = shipment.status;
     const newStatus = req.body.status;
     const statusChanged = newStatus && oldStatus !== newStatus;
+    
+    // Update the updated_at timestamp
+    req.body.updated_at = new Date().toISOString();
 
     const updates = Object.keys(req.body)
       .filter(key => req.body[key] !== undefined)
@@ -582,65 +671,91 @@ app.put('/shipments/:id', async (req, res) => {
     const values = [...Object.values(req.body).filter(val => val !== undefined), req.params.id];
 
     await run(`UPDATE shipments SET ${updates} WHERE id = ?`, values);
-    
-    // Create notification for status changes
-    if (statusChanged && shipment.shipper_id) {
-      // Get shipment info for notification
-      const shipmentDetail = await get(`
-        SELECT s.*, o.name as origin_name, d.name as destination_name 
-        FROM shipments s
-        LEFT JOIN locations o ON s.origin_id = o.id
-        LEFT JOIN locations d ON s.destination_id = d.id
-        WHERE s.id = ?`, 
-        [req.params.id]
-      );
-      
-      if (shipmentDetail) {
-        let title = '';
-        let message = '';
-        
-        // Create appropriate notification based on status
-        switch (newStatus) {
-          case 'approved':
-            title = 'Shipment Approved';
-            message = `Your shipment from ${shipmentDetail.origin_name} to ${shipmentDetail.destination_name} has been approved.`;
-            break;
-          case 'picked_up':
-            title = 'Shipment Picked Up';
-            message = `Your shipment has been picked up and is now on its way.`;
-            break;
-          case 'in_transit':
-            title = 'Shipment In Transit';
-            message = `Your shipment is now in transit to its destination.`;
-            break;
-          case 'delivered':
-            title = 'Shipment Delivered';
-            message = `Your shipment has been successfully delivered to ${shipmentDetail.destination_name}.`;
-            break;
-          case 'completed':
-            title = 'Shipment Completed';
-            message = `Your shipment has been marked as completed.`;
-            break;
-          case 'cancelled':
-            title = 'Shipment Cancelled';
-            message = `Your shipment has been cancelled.`;
-            break;
-          default:
-            title = 'Shipment Update';
-            message = `Your shipment status has been updated to ${newStatus}.`;
+
+    // Handle status change notifications and related actions
+    if (statusChanged) {
+      // Specific status transition logic
+      if (newStatus === 'picked_up' && ['assigned', 'out_for_pickup'].includes(oldStatus)) {
+        // If package dimensions were not provided during pickup, prompt the user
+        if (!shipment.weight && !req.body.weight) {
+          console.log(`Driver picked up shipment ${shipment.id} without recording dimensions`);
         }
         
-        // Create the notification
-        const notificationId = await createNotification(
-          shipment.shipper_id,
-          shipment.id,
-          title,
-          message,
-          'status_update'
+        // Log the timestamp of pickup
+        await run(
+          'UPDATE shipments SET pickup_timestamp = ? WHERE id = ?',
+          [new Date().toISOString(), shipment.id]
         );
-        
-        console.log(`Notification created for shipment ${shipment.id} with ID ${notificationId}`);
+      } else if (newStatus === 'delivered' && ['picked_up', 'out_for_delivery'].includes(oldStatus)) {
+        // Log the timestamp of delivery
+        await run(
+          'UPDATE shipments SET delivery_timestamp = ? WHERE id = ?',
+          [new Date().toISOString(), shipment.id]
+        );
       }
+
+      // Status notification title and message
+      let title = 'Shipment Status Update';
+      let message = `Your shipment status has been updated to: ${newStatus.replace(/_/g, ' ').toUpperCase()}`;
+
+      switch (newStatus) {
+        case 'assigned':
+          title = 'Driver Assigned';
+          message = 'A driver has been assigned to your shipment.';
+          break;
+        case 'picked_up':
+          title = 'Shipment Picked Up';
+          message = 'Your shipment has been picked up by the driver.';
+          break;
+        case 'out_for_delivery':
+          title = 'Out For Delivery';
+          message = 'Your shipment is out for delivery.';
+          break;
+        case 'delivered':
+          title = 'Shipment Delivered';
+          message = 'Your shipment has been delivered successfully.';
+          break;
+        case 'cancelled':
+          title = 'Shipment Cancelled';
+          message = 'Your shipment has been cancelled.';
+          break;
+      }
+      
+      // Create the notification
+      const notificationId = await createNotification(
+        shipment.shipper_id,
+        shipment.id,
+        title,
+        message,
+        'status_update'
+      );
+      
+      console.log(`Notification created for shipment ${shipment.id} with ID ${notificationId}`);
+    }
+    
+    // If dimensions were updated, create a notification
+    const dimensionFields = ['weight', 'length', 'width', 'height', 'dimension_unit'];
+    const dimensionsUpdated = dimensionFields.some(field => req.body[field] !== undefined);
+    
+    if (dimensionsUpdated) {
+      const dimensionInfo = [];
+      if (req.body.weight) dimensionInfo.push(`Weight: ${req.body.weight}${req.body.dimension_unit ? req.body.dimension_unit : 'kg'}`);
+      if (req.body.length) dimensionInfo.push(`Length: ${req.body.length}${req.body.dimension_unit ? req.body.dimension_unit : 'cm'}`);
+      if (req.body.width) dimensionInfo.push(`Width: ${req.body.width}${req.body.dimension_unit ? req.body.dimension_unit : 'cm'}`);
+      if (req.body.height) dimensionInfo.push(`Height: ${req.body.height}${req.body.dimension_unit ? req.body.dimension_unit : 'cm'}`);
+      
+      const title = 'Package Dimensions Updated';
+      const message = `Package dimensions have been recorded: ${dimensionInfo.join(', ')}`;
+      
+      await createNotification(
+        shipment.shipper_id,
+        shipment.id,
+        title,
+        message,
+        'package_info'
+      );
+      
+      console.log(`Dimension update notification created for shipment ${shipment.id}`);
     }
 
     res.json({ message: 'Shipment updated' });
@@ -1085,41 +1200,40 @@ app.put('/shipments/:id/quote', authorize(['admin']), async (req, res) => {
 
     // Create notification for quote
     if (shipment.shipper_id) {
-      // Get shipment details for the notification
-      const shipmentDetail = await get(`
-        SELECT s.*, o.name as origin_name, d.name as destination_name 
-        FROM shipments s
-        LEFT JOIN locations o ON s.origin_id = o.id
-        LEFT JOIN locations d ON s.destination_id = d.id
-        WHERE s.id = ?`, 
-        [req.params.id]
-      );
-      
-      if (shipmentDetail) {
+      try {
+        // Get shipment details for the notification
         const formattedAmount = quote_amount.toLocaleString('en-US', {
           style: 'currency',
           currency: 'USD'
         });
         
-        const title = 'Quote Available';
-        const message = `A quote of ${formattedAmount} is available for your shipment from ${shipmentDetail.origin_name} to ${shipmentDetail.destination_name}.`;
+        const origin = shipment.pickup_city || 'pickup location';
+        const destination = shipment.delivery_city || 'delivery location';
         
-        // Create the notification
-        const notificationId = await createNotification(
+        const title = 'Quote Available';
+        const message = `A quote of ${formattedAmount} is available for your shipment from ${origin} to ${destination}.`;
+        
+        // Create notification
+        await createNotification(
           shipment.shipper_id,
           shipment.id,
           title,
           message,
           'quote'
         );
-        
-        console.log(`Quote notification created for shipment ${shipment.id} with ID ${notificationId}`);
+      } catch (notifError) {
+        console.error('Error creating quote notification:', notifError);
+        // Continue processing even if notification fails
       }
     }
 
-    res.json({ message: 'Quote set successfully' });
+    res.json({ 
+      message: 'Quote submitted successfully',
+      quote_amount: quote_amount,
+      shipment_id: req.params.id
+    });
   } catch (error) {
-    console.error('Set quote error:', error);
+    console.error('Error providing quote:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -2108,7 +2222,7 @@ app.get('/shipments/:id/invoice', async (req, res) => {
 
 // Notification endpoints
 // Get notifications for authenticated shipper
-app.get('/api/notifications', jwtMiddleware, async (req, res) => {
+app.get('/api/notifications', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2137,7 +2251,7 @@ app.get('/api/notifications', jwtMiddleware, async (req, res) => {
 });
 
 // Mark notifications as read
-app.put('/api/notifications/read', jwtMiddleware, async (req, res) => {
+app.put('/api/notifications/read', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2164,7 +2278,7 @@ app.put('/api/notifications/read', jwtMiddleware, async (req, res) => {
 });
 
 // Mark all notifications as read
-app.put('/api/notifications/read-all', jwtMiddleware, async (req, res) => {
+app.put('/api/notifications/read-all', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2184,7 +2298,7 @@ app.put('/api/notifications/read-all', jwtMiddleware, async (req, res) => {
 });
 
 // Get unread notification count only
-app.get('/api/notifications/count', jwtMiddleware, async (req, res) => {
+app.get('/api/notifications/count', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     // Only allow shippers to access their notifications
     if (req.auth.role !== 'shipper') {
@@ -2204,7 +2318,7 @@ app.get('/api/notifications/count', jwtMiddleware, async (req, res) => {
 });
 
 // Profile update endpoint
-app.put('/users/profile', jwtMiddleware, async (req, res) => {
+app.put('/users/profile', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     const userId = req.auth.id;
     const { name, email, phone } = req.body;
@@ -2376,7 +2490,7 @@ app.delete('/users/:id', authorize(['admin']), async (req, res) => {
 });
 
 // Get invoice details with tax breakdown
-app.get('/api/shipments/:id/invoice-details', jwtMiddleware, async (req, res) => {
+app.get('/api/shipments/:id/invoice-details', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), async (req, res) => {
   try {
     // Check shipment access based on role
     let query = `
@@ -2466,8 +2580,312 @@ app.put('/api/shipments/:id/mark-paid', authorize(['admin']), async (req, res) =
   }
 });
 
-// Start server
+// Special endpoint to check if admin setup is allowed
+app.get('/admin/setup/status', async (req, res) => {
+  try {
+    // Check if any admin users already exist
+    const existingAdmins = await all('SELECT id FROM users WHERE role = ?', ['admin']);
+    
+    // Setup is allowed only if no admins exist
+    const canSetup = !existingAdmins || existingAdmins.length === 0;
+    
+    res.json({ 
+      canSetup,
+      message: canSetup ? 
+        'No admin accounts exist. Setup is allowed.' : 
+        'Admin accounts already exist. Setup is not allowed.'
+    });
+  } catch (error) {
+    console.error('Error checking admin setup status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Special endpoint to create the first admin account (can only be used when no admins exist)
+app.post('/admin/setup', async (req, res) => {
+  try {
+    // Check if any admin users already exist
+    const existingAdmins = await all('SELECT id FROM users WHERE role = ?', ['admin']);
+    
+    if (existingAdmins && existingAdmins.length > 0) {
+      console.log('Admin setup attempted but admins already exist');
+      return res.status(403).json({ 
+        error: 'Admin accounts already exist',
+        message: 'This endpoint can only be used when no admin accounts exist in the system.'
+      });
+    }
+    
+    const { username, password, name } = req.body;
+    
+    // Validate required fields
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required' });
+    }
+    
+    // Check if username is already taken
+    const existingUser = await get('SELECT id FROM users WHERE username = ?', [username]);
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+    
+    // Hash password and create admin
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const displayName = name || username;
+    
+    await run(
+      'INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, 'admin', displayName]
+    );
+    
+    console.log(`✅ First admin account created: ${username}`);
+    res.status(201).json({ 
+      message: 'First admin account created successfully',
+      username,
+      role: 'admin'
+    });
+  } catch (error) {
+    console.error('Error creating first admin account:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin endpoint to manage users (requires admin role)
+app.get('/admin/users', authorize(['admin']), async (req, res) => {
+  try {
+    // Get all users from database
+    const users = await all('SELECT id, username, role, name FROM users');
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Admin endpoint to get dashboard data
+app.get('/admin/dashboard', authorize(['admin']), async (req, res) => {
+  try {
+    // Get counts from database
+    const [
+      totalShipments,
+      pendingShipments,
+      activeShipments,
+      completedShipments,
+      totalDrivers,
+      totalVehicles,
+      recentShipments
+    ] = await Promise.all([
+      get('SELECT COUNT(*) as count FROM shipments'),
+      get('SELECT COUNT(*) as count FROM shipments WHERE status IN ("pending", "quote_requested", "quote_provided")'),
+      get('SELECT COUNT(*) as count FROM shipments WHERE status IN ("assigned", "picked_up", "in_transit")'),
+      get('SELECT COUNT(*) as count FROM shipments WHERE status = "delivered"'),
+      get('SELECT COUNT(*) as count FROM users WHERE role = "driver"'),
+      get('SELECT COUNT(*) as count FROM vehicles'),
+      all(`SELECT 
+        s.id, s.tracking_number, s.status, s.created_at, 
+        u_shipper.name as shipper_name, 
+        u_driver.name as driver_name 
+      FROM shipments s
+      LEFT JOIN users u_shipper ON s.shipper_id = u_shipper.id
+      LEFT JOIN users u_driver ON s.driver_id = u_driver.id
+      ORDER BY s.created_at DESC LIMIT 5`)
+    ]);
+    
+    res.json({
+      counts: {
+        totalShipments: totalShipments.count,
+        pendingShipments: pendingShipments.count,
+        activeShipments: activeShipments.count,
+        completedShipments: completedShipments.count,
+        totalDrivers: totalDrivers.count,
+        totalVehicles: totalVehicles.count
+      },
+      recentShipments
+    });
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// =====================================================
+// DATABASE PROXY API ENDPOINTS
+// =====================================================
+// These endpoints are used by the database-proxy.js module to redirect
+// database operations to the Render server when in development mode
+
+// Security middleware to ensure only authorized clients can access these endpoints
+const databaseProxyAuth = (req, res, next) => {
+  // In production, we would use more secure authentication
+  // For dev purposes, we'll use a simple header check
+  const isProxy = req.headers['x-database-proxy'] === 'true';
+  
+  if (!isProxy) {
+    return res.status(403).json({ error: 'Unauthorized access to database proxy API' });
+  }
+  
+  next();
+};
+
+// Run a SQL query
+app.post('/db/run', databaseProxyAuth, async (req, res) => {
+  const { sql, params = [] } = req.body;
+  
+  if (!sql) {
+    return res.status(400).json({ error: 'SQL query is required' });
+  }
+  
+  try {
+    const result = await run(sql, params);
+    res.json(result);
+  } catch (error) {
+    console.error('Database proxy error (run):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get a single row
+app.post('/db/get', databaseProxyAuth, async (req, res) => {
+  const { sql, params = [] } = req.body;
+  
+  if (!sql) {
+    return res.status(400).json({ error: 'SQL query is required' });
+  }
+  
+  try {
+    const result = await get(sql, params);
+    res.json(result || null);
+  } catch (error) {
+    console.error('Database proxy error (get):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get multiple rows
+app.post('/db/all', databaseProxyAuth, async (req, res) => {
+  const { sql, params = [] } = req.body;
+  
+  if (!sql) {
+    return res.status(400).json({ error: 'SQL query is required' });
+  }
+  
+  try {
+    const result = await all(sql, params);
+    res.json(result || []);
+  } catch (error) {
+    console.error('Database proxy error (all):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Execute multiple SQL statements
+app.post('/db/exec', databaseProxyAuth, async (req, res) => {
+  const { sql } = req.body;
+  
+  if (!sql) {
+    return res.status(400).json({ error: 'SQL query is required' });
+  }
+  
+  try {
+    db.exec(sql, (err) => {
+      if (err) {
+        console.error('Database proxy error (exec):', err);
+        res.status(500).json({ error: err.message });
+      } else {
+        res.json({ success: true });
+      }
+    });
+  } catch (error) {
+    console.error('Database proxy error (exec):', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Start the server
 app.listen(port, () => {
   console.log(`🚀 Server is running on port ${port}`);
   console.log(`📚 API Documentation available at http://localhost:${port}/api-docs`);
-}); 
+});
+
+// Get all clients for a specific shipper (Admin only)
+app.get('/admin/shippers/:id/clients', authorize(['admin']), async (req, res) => {
+  try {
+    // Verify the shipper exists first
+    const shipper = await get(
+      'SELECT id, username FROM users WHERE id = ? AND role = "shipper"',
+      [req.params.id]
+    );
+    
+    if (!shipper) {
+      return res.status(404).json({ error: 'Shipper not found' });
+    }
+    
+    // Fetch all clients for this shipper
+    const clients = await all(
+      'SELECT * FROM clients WHERE shipper_id = ?',
+      [req.params.id]
+    );
+    
+    res.json(clients);
+  } catch (error) {
+    console.error('Get shipper clients error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all saved addresses for a specific shipper (Admin only)
+app.get('/admin/shippers/:id/addresses', authorize(['admin']), async (req, res) => {
+  try {
+    // Verify the shipper exists first
+    const shipper = await get(
+      'SELECT id, username FROM users WHERE id = ? AND role = "shipper"',
+      [req.params.id]
+    );
+    
+    if (!shipper) {
+      return res.status(404).json({ error: 'Shipper not found' });
+    }
+    
+    // Fetch all saved addresses for this shipper
+    const addresses = await all(
+      'SELECT * FROM saved_addresses WHERE shipper_id = ? ORDER BY is_default DESC, created_at DESC',
+      [req.params.id]
+    );
+    
+    res.json(addresses);
+  } catch (error) {
+    console.error('Get shipper addresses error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Test endpoint for Supabase connectivity
+app.get('/api/test-db', async (req, res) => {
+  try {
+    // Try to query the Supabase database
+    const { data, error } = await supabase.from('users').select('count');
+    
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return res.status(500).json({ 
+        status: 'error', 
+        message: 'Database connection failed',
+        error: error.message,
+        supabaseUrl: process.env.SUPABASE_URL ? 'Configured' : 'Missing'
+      });
+    }
+    
+    res.json({ 
+      status: 'ok', 
+      message: 'Supabase connection successful',
+      data: data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test failed:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database test failed',
+      error: error.message
+    });
+  }
+});

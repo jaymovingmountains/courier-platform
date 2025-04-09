@@ -203,6 +203,17 @@ final class DashboardViewModel: ObservableObject {
     private var lastUpdateRequestTime: [Int: Date] = [:]
     private let minimumUpdateInterval: TimeInterval = 1.0 // 1 second between requests
     
+    // Add these new properties to the class
+    private var driverMappings: [DriverMapping] = []
+    private var isDriverMappingLoaded = false
+    
+    // Add this new struct to the class
+    struct DriverMapping: Decodable {
+        let id: Int
+        let username: String
+        let name: String
+    }
+    
     init(apiClient: APIClient, authService: AuthService) {  // Update initializer to accept AuthService
         self.apiClient = apiClient
         self.authService = authService
@@ -347,6 +358,13 @@ final class DashboardViewModel: ObservableObject {
         error = nil
         showError = false
         
+        // Check if we have driver mappings loaded first
+        if !isDriverMappingLoaded {
+            print("Driver mappings not loaded yet, fetching them first...")
+            fetchDriverMappings()
+            return
+        }
+        
         // Start both fetches
         fetchActiveJobs()
         fetchAvailableJobs()
@@ -360,25 +378,36 @@ final class DashboardViewModel: ObservableObject {
         
         Task {
             do {
-                // First try the debug method
+                // Get current user ID first for more targeted fetching
+                let currentUserId = getCurrentUserId()
+                print("👤 Current user ID for fetching active jobs: \(currentUserId)")
+                
+                // First try the debug method which now fetches ALL jobs (with no assigned=false filter)
                 let result = await apiClient.debugFetchJobs()
                 
                 switch result {
                 case .success(let jobs):
                     print("✅ Successfully fetched \(jobs.count) jobs with debug method")
                     
-                    // Get current user ID
-                    if let currentUserId = getCurrentUserId() {
                         // Filter jobs that belong to the current user
                         let userJobs = jobs.filter { $0.driverId == currentUserId }
                         print("👤 Filtered \(userJobs.count) jobs assigned to current user ID \(currentUserId)")
-                        handleActiveJobsSuccess(userJobs)
+                    
+                    if userJobs.isEmpty {
+                        print("⚠️ NO JOBS FOUND for user ID \(currentUserId)")
+                        print("⚠️ Trying shipments fallback...")
+                        
+                        // If no jobs, try to get shipments instead
+                        await fetchShipmentsAsJobs()
+                        return
                     } else {
-                        print("⚠️ Could not determine current user ID, showing all assigned jobs as fallback")
-                        handleActiveJobsSuccess(jobs.filter { $0.driverId != nil })
+                        print("📊 User's jobs: \(userJobs.map { "Job #\($0.id) - Status: \($0.status.rawValue)" })")
+                        handleActiveJobsSuccess(userJobs)
                     }
                     
-                    handleAvailableJobsSuccess(jobs.filter { $0.driverId == nil })
+                    // Show available jobs too
+                    let availableJobs = jobs.filter { $0.driverId == nil }
+                    handleAvailableJobsSuccess(availableJobs)
                     return
                     
                 case .failure(let apiError):
@@ -387,19 +416,31 @@ final class DashboardViewModel: ObservableObject {
                 }
                 
                 // Standard method if debug method fails
-                let active: [JobDTO] = try await apiClient.fetch(
-                    endpoint: APIConstants.jobsWithParams(assigned: true)
+                let allJobs: [JobDTO] = try await apiClient.fetch(
+                    endpoint: APIConstants.jobsEndpoint
                 )
                 
-                // Filter by current user ID if available
-                if let currentUserId = getCurrentUserId() {
-                    let userJobs = active.filter { $0.driverId == currentUserId }
+                print("✅ Standard fetch returned \(allJobs.count) total jobs")
+                
+                // Filter by current user ID
+                let userJobs = allJobs.filter { $0.driverId == currentUserId }
                     print("👤 Filtered \(userJobs.count) jobs assigned to current user ID \(currentUserId)")
-                    handleActiveJobsSuccess(userJobs)
+                
+                if userJobs.isEmpty {
+                    print("⚠️ NO JOBS FOUND for user ID \(currentUserId)")
+                    print("⚠️ Trying shipments fallback...")
+                    
+                    // If no jobs, try to get shipments instead
+                    await fetchShipmentsAsJobs()
+                    return
                 } else {
-                    print("⚠️ Could not determine current user ID, showing all assigned jobs as fallback")
-                    handleActiveJobsSuccess(active)
+                    print("📊 User's jobs: \(userJobs.map { "Job #\($0.id) - Status: \($0.status.rawValue)" })")
+                    handleActiveJobsSuccess(userJobs)
                 }
+                
+                // Filter available jobs
+                let availableJobs = allJobs.filter { $0.driverId == nil }
+                handleAvailableJobsSuccess(availableJobs)
                 
             } catch {
                 handleError(error, operation: "fetchJobs", retryAction: { [weak self] in
@@ -462,7 +503,7 @@ final class DashboardViewModel: ObservableObject {
         setLoading(false, for: .fetchActiveJobs)
         
         // Log information about user-specific jobs
-        if let currentUserId = getCurrentUserId() {
+        let currentUserId = getCurrentUserId()
             let userJobs = filteredJobs.filter { $0.driverId == currentUserId }
             print("👤 User #\(currentUserId) has \(userJobs.count) active jobs")
             
@@ -477,7 +518,6 @@ final class DashboardViewModel: ObservableObject {
                         object: nil,
                         userInfo: ["job": job]
                     )
-                }
             }
         }
     }
@@ -498,13 +538,8 @@ final class DashboardViewModel: ObservableObject {
             return
         }
         
-        // Check if user is authenticated
-        guard let currentUserId = getCurrentUserId() else {
-            print("⚠️ Cannot accept job: User not authenticated")
-            error = .authentication(description: "You must be logged in to accept jobs")
-            showError = true
-            return
-        }
+        // Get current user ID
+        let currentUserId = getCurrentUserId()
         
         setLoading(true, for: .acceptJob)
         
@@ -842,8 +877,318 @@ final class DashboardViewModel: ObservableObject {
         print("🔄 Updated authService with environment instance")
     }
     
-    // Helper to get the current user ID
-    private func getCurrentUserId() -> Int? {
-        return authService.currentUser?.id
+    // Replace getCurrentUserId() with this non-optional version
+    private func getCurrentUserId() -> Int {
+        // First try to get from authService
+        if let user = authService.currentUser {
+            print("�� Found user in authService: ID=\(user.id), username=\(user.username), role=\(user.role)")
+            return user.id
+        }
+        
+        // First try to find the ID from our mappings
+        if let username = UserDefaults.standard.string(forKey: UserDefaultsKeys.username),
+           let driverMapping = driverMappings.first(where: { $0.username == username }) {
+            print("Found driver ID \(driverMapping.id) for username \(username) from server mapping")
+            return driverMapping.id
+        }
+        
+        // Try from UserDefaults as fallback
+        if let userId = UserDefaults.standard.object(forKey: UserDefaultsKeys.userId) as? Int {
+            print("👤 Found user ID \(userId) in UserDefaults")
+            return userId
+        }
+        
+        // Fallback to hardcoded IDs
+        if let username = UserDefaults.standard.string(forKey: UserDefaultsKeys.username) {
+            print("👤 Found username in UserDefaults: \(username)")
+            
+            // Map usernames to known IDs
+            if username.lowercased() == "driver1" {
+                print("👤 Detected username 'Driver1' - using ID 6")
+                return 6
+            }
+            
+            if username.lowercased() == "driver2" {
+                print("👤 Detected username 'Driver2' - using ID 5")
+                return 5
+            }
+        }
+        
+        print("⚠️ Could not determine user ID - defaulting to 0")
+        return 0  // Default value, will likely cause API calls to return no data
+    }
+    
+    // Update fetchShipmentsAsJobs to handle non-optional userId
+    private func fetchShipmentsAsJobs() async {
+        print("🔍 Fetching shipments as jobs fallback...")
+        
+        setLoading(true, for: .fetchActiveJobs)
+        
+        do {
+            // Get current user ID for filtering
+            let currentUserId = getCurrentUserId()
+            print("👤 Current user ID for fetching shipments: \(currentUserId)")
+            
+            // Fetch all shipments
+            let shipments: [ShipmentDTO] = try await apiClient.fetch(
+                endpoint: APIConstants.shipmentsEndpoint
+            )
+            
+            print("✅ Fetched \(shipments.count) shipments from server")
+            
+            // VERBOSE: Print all shipment details for debugging
+            for shipment in shipments {
+                print("📦 SHIPMENT #\(shipment.id):")
+                print("📦   - Status: \(shipment.status.rawValue)")
+                print("📦   - Pickup: \(shipment.pickupAddress.street), \(shipment.pickupAddress.city), \(shipment.pickupAddress.zipCode)")
+                print("📦   - Delivery: \(shipment.deliveryAddress.street), \(shipment.deliveryAddress.city), \(shipment.deliveryAddress.zipCode)")
+                print("📦   - Created: \(shipment.createdAt)")
+                if let driverId = shipment.driverId {
+                    print("📦   - Driver ID: \(driverId)")
+                } else {
+                    print("📦   - Driver ID: nil (unassigned)")
+                }
+            }
+            
+            // Filter to driver's shipments
+            var filteredShipments: [ShipmentDTO] = []
+            
+            // Try first with exact match on driverId
+            let driverShipments = shipments.filter { $0.driverId == currentUserId }
+            
+            if !driverShipments.isEmpty {
+                print("👤 Found \(driverShipments.count) shipments with driver ID \(currentUserId)")
+                filteredShipments = driverShipments
+            } else {
+                // If no exact matches, look for shipments that might be available to assign
+                let availableShipments = shipments.filter { 
+                    $0.driverId == nil && ["pending", "approved", "quoted"].contains($0.status.rawValue)
+                }
+                
+                print("👤 No shipments found for Driver \(currentUserId), but found \(availableShipments.count) available shipments")
+                filteredShipments = availableShipments
+            }
+            
+            if filteredShipments.isEmpty {
+                print("⚠️ No shipments found for Driver1 on production server")
+                activeJobs = []
+                setLoading(false, for: .fetchActiveJobs)
+                return
+            }
+            
+            // Create date formatter for consistent formatting
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            
+            // Convert shipments to JobDTO objects
+            let convertedJobs = filteredShipments.map { shipment -> JobDTO in
+                // Convert String ID to Int safely
+                let shipmentId = Int(shipment.id) ?? 0
+                
+                // Format dates consistently
+                let createdAtStr = dateFormatter.string(from: shipment.createdAt)
+                
+                // Create JobStatus from ShipmentStatus
+                let jobStatus = JobStatus(rawValue: shipment.status.rawValue) ?? .pending
+                
+                // Create JobDTO from ShipmentDTO, properly mapping address fields
+                return JobDTO(
+                    id: shipmentId,
+                    jobId: nil,  // No job ID since this is a shipment
+                    shipperId: shipment.shipperId ?? 1,  // Default to 1 if nil
+                    driverId: shipment.driverId,
+                    status: jobStatus,
+                    shipmentType: shipment.shipmentType ?? "standard",
+                    pickupAddress: shipment.pickupAddress.street,
+                    pickupCity: shipment.pickupAddress.city,
+                    pickupPostalCode: shipment.pickupAddress.zipCode,
+                    deliveryAddress: shipment.deliveryAddress.street,
+                    deliveryCity: shipment.deliveryAddress.city,
+                    deliveryPostalCode: shipment.deliveryAddress.zipCode,
+                    quoteAmount: shipment.quoteAmount,
+                    createdAt: createdAtStr,
+                    province: shipment.province,
+                    vehicleId: shipment.vehicleId,
+                    vehicleName: shipment.vehicleName,
+                    licensePlate: shipment.licensePlate,
+                    assignedAt: nil,  // No assigned date available
+                    completedAt: nil   // No completed date available
+                )
+            }
+            
+            print("✅ Converted \(convertedJobs.count) shipments to jobs")
+            
+            // Handle as active jobs
+            handleActiveJobsSuccess(convertedJobs)
+        } catch {
+            print("🚨 Error fetching shipments: \(error)")
+            handleError(error, operation: "fetchShipmentsAsJobs")
+            setLoading(false, for: .fetchActiveJobs)
+        }
+    }
+    
+    // Complete the fetchDriverMappings implementation
+    func fetchDriverMappings() {
+        guard let apiUrl = URL(string: "\(APIConstants.baseURL)/driver-mapping") else {
+            print("Invalid API URL")
+            return
+        }
+        
+        print("🔍 Fetching driver mappings from server...")
+        
+        // Create the request
+        var request = URLRequest(url: apiUrl)
+        request.httpMethod = "GET"
+        
+        // Add authorization header if we have a token
+        if let token = UserDefaults.standard.string(forKey: UserDefaultsKeys.authToken) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            print("🔍 Using token for driver mapping request: \(String(token.prefix(10)))...")
+        } else {
+            print("⚠️ No auth token available for driver mapping request")
+        }
+        
+        // Add longer timeout for slow connections
+        request.timeoutInterval = 30
+        
+        // Create task
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+            
+            // Check server response
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🔍 Driver mapping server response code: \(httpResponse.statusCode)")
+            }
+            
+            // Check for errors
+            if let error = error {
+                print("🚨 Network error fetching driver mappings: \(error.localizedDescription)")
+                
+                // Provide more specific error info
+                let nsError = error as NSError
+                print("🚨 Error domain: \(nsError.domain), code: \(nsError.code)")
+                
+                // Handle specific error cases
+                if nsError.domain == NSURLErrorDomain {
+                    switch nsError.code {
+                    case NSURLErrorTimedOut:
+                        print("🚨 Request timed out - server may be slow or unreachable")
+                    case NSURLErrorCannotConnectToHost:
+                        print("🚨 Cannot connect to host - server may be down")
+                    case NSURLErrorNetworkConnectionLost:
+                        print("🚨 Network connection lost during request")
+                    case NSURLErrorNotConnectedToInternet:
+                        print("🚨 Device is not connected to the internet")
+                    default:
+                        print("🚨 Other network error: \(nsError.code)")
+                    }
+                }
+                
+                // Set the flag to indicate we tried but failed
+                Task { @MainActor in
+                    self.isDriverMappingLoaded = true
+                    print("⚠️ Setting isDriverMappingLoaded = true despite error to allow fallback logic")
+                    
+                    // Create fallback mapping data for common users
+                    self.createFallbackDriverMappings()
+                    
+                    // Continue with fetching jobs using fallback mapping
+                    self.fetchJobs()
+                }
+                return
+            }
+            
+            // Check if the endpoint returned a 404 Not Found
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 404 {
+                print("⚠️ Driver mapping endpoint returned 404 Not Found - endpoint may not be implemented on server")
+                
+                Task { @MainActor in
+                    self.isDriverMappingLoaded = true
+                    
+                    // Create fallback mapping data
+                    self.createFallbackDriverMappings()
+                    
+                    // Continue with fetching jobs
+                    self.fetchJobs()
+                }
+                return
+            }
+            
+            // Ensure we have data
+            guard let data = data else {
+                print("🚨 No data received from driver mappings endpoint")
+                
+                Task { @MainActor in
+                    self.isDriverMappingLoaded = true
+                    
+                    // Create fallback mapping data
+                    self.createFallbackDriverMappings()
+                    
+                    // Continue with fetching jobs
+                    self.fetchJobs()
+                }
+                return
+            }
+            
+            // Try to decode the response
+            do {
+                let mappings = try JSONDecoder().decode([DriverMapping].self, from: data)
+                print("✅ Successfully fetched \(mappings.count) driver mappings")
+                
+                // Log the mappings for debugging
+                for mapping in mappings {
+                    print("📊 Driver mapping: id=\(mapping.id), username=\(mapping.username), name=\(mapping.name)")
+                }
+                
+                Task { @MainActor in
+                    self.driverMappings = mappings
+                    self.isDriverMappingLoaded = true
+                    print("✅ Driver mappings loaded successfully")
+                    
+                    // Now fetch jobs with the mappings
+                    self.fetchJobs()
+                }
+            } catch {
+                print("🚨 Error decoding driver mappings: \(error.localizedDescription)")
+                
+                // Print the raw data for debugging
+                if let dataString = String(data: data, encoding: .utf8) {
+                    print("🔍 Raw response data: \(dataString)")
+                } else {
+                    print("🔍 Response data: <binary data>")
+                }
+                
+                Task { @MainActor in
+                    self.isDriverMappingLoaded = true
+                    
+                    // Create fallback mapping data
+                    self.createFallbackDriverMappings()
+                    
+                    // Continue with fetching jobs
+                    self.fetchJobs()
+                }
+            }
+        }
+        
+        // Start the task
+        task.resume()
+    }
+    
+    // Add new method to create fallback driver mappings if server doesn't provide them
+    private func createFallbackDriverMappings() {
+        print("🔧 Creating fallback driver mappings")
+        
+        // In case the server request fails, we create fallback mappings
+        let fallbackMappings = [
+            DriverMapping(id: 5, username: "Driver2", name: "Driver2"),
+            DriverMapping(id: 6, username: "Driver1", name: "John Doe")
+        ]
+        
+        self.driverMappings = fallbackMappings
+        
+        print("✅ Created fallback mappings for common drivers:")
+        for mapping in fallbackMappings {
+            print("📊 Fallback mapping: id=\(mapping.id), username=\(mapping.username), name=\(mapping.name)")
+        }
     }
 } 

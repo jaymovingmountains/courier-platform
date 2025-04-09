@@ -179,6 +179,23 @@
   background-color: #e74c3c;
 }
 
+.action-button.manage {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-block;
+  text-decoration: none;
+  margin-left: 10px;
+}
+
+.action-button.manage:hover {
+  background-color: #2980b9;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;

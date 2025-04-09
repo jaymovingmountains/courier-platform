@@ -16,13 +16,13 @@ class BuildConfiguration {
     #endif
     
     var baseURL: String {
-        switch environment {
+        switch self.environment {
         case .development:
             return "http://localhost:3001"
         case .staging:
-            return "https://staging-api.movingmountains.com"
+            return "http://localhost:3001"
         case .production:
-            return "https://api.movingmountains.com"
+            return "http://localhost:3001"
         }
     }
     

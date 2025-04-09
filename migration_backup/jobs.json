@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "shipment_id": 1,
+    "driver_id": null,
+    "status": "pending",
+    "assigned_at": null,
+    "completed_at": null,
+    "province": "AB"
+  },
+  {
+    "id": 2,
+    "shipment_id": 3,
+    "driver_id": 1,
+    "status": "assigned",
+    "assigned_at": "2025-03-02 23:45:49.811",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 3,
+    "shipment_id": 1,
+    "driver_id": 6,
+    "status": "assigned",
+    "assigned_at": "2025-03-02 23:50:18",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 4,
+    "shipment_id": 10,
+    "driver_id": 6,
+    "status": "assigned",
+    "assigned_at": "2025-03-02 23:50:42",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 5,
+    "shipment_id": 11,
+    "driver_id": 6,
+    "status": "assigned",
+    "assigned_at": "2025-03-03 00:47:56",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 6,
+    "shipment_id": 12,
+    "driver_id": 5,
+    "status": "assigned",
+    "assigned_at": "2025-03-03 00:47:56",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 7,
+    "shipment_id": 13,
+    "driver_id": 6,
+    "status": "picked_up",
+    "assigned_at": "2025-03-03 00:47:56",
+    "completed_at": null,
+    "province": null
+  },
+  {
+    "id": 8,
+    "shipment_id": 14,
+    "driver_id": 5,
+    "status": "picked_up",
+    "assigned_at": "2025-03-03 00:47:56",
+    "completed_at": null,
+    "province": null
+  }
+]
