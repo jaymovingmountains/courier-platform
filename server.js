@@ -128,6 +128,53 @@ const app = express();
 const port = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'courier_secret';
 
+// Special direct debugging route - MUST BE CREATED BEFORE ANY MIDDLEWARE
+app.post('/no-auth/create-test-admin', async (req, res) => {
+  try {
+    console.log('Attempting to create test admin with no auth...');
+    
+    // Create hashed password
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    // Try direct Supabase insert
+    console.log('Using Supabase URL:', process.env.SUPABASE_URL);
+    console.log('Supabase key is set:', !!process.env.SUPABASE_KEY);
+    
+    const { data, error } = await supabase.from('users').insert({
+      username: 'admintest',
+      password: hashedPassword,
+      role: 'admin',
+      name: 'Admin Test'
+    }).select();
+    
+    if (error) {
+      console.error('Error creating test admin:', error);
+      return res.status(500).json({ 
+        error: 'Failed to create test admin', 
+        details: error.message 
+      });
+    }
+    
+    console.log('Test admin created successfully:', data);
+    res.status(201).json({ 
+      message: 'Test admin created successfully',
+      user: {
+        username: 'admintest',
+        role: 'admin',
+        name: 'Admin Test'
+      },
+      data: data
+    });
+  } catch (error) {
+    console.error('Unexpected error creating test admin:', error);
+    res.status(500).json({ 
+      error: 'Failed to create test admin', 
+      details: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Logging middleware for production
 app.use((req, res, next) => {
   const start = Date.now();
