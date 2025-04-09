@@ -240,6 +240,7 @@ const authorize = (roles = []) => {
 app.post('/register', async (req, res) => {
   try {
     const { username, password, role, name } = req.body;
+    console.log('Registration attempt:', { username, role, name });
 
     // Validate role
     if (!['shipper', 'admin', 'driver'].includes(role)) {
@@ -247,7 +248,18 @@ app.post('/register', async (req, res) => {
     }
 
     // Check if username exists
-    const existingUser = await get('SELECT id FROM users WHERE username = ?', [username]);
+    let existingUser;
+    try {
+      existingUser = await get('SELECT id FROM users WHERE username = ?', [username]);
+      console.log('Existing user check result:', existingUser);
+    } catch (checkError) {
+      console.error('Error checking existing user:', checkError);
+      return res.status(500).json({ 
+        error: 'Database error during user check',
+        details: checkError.message
+      });
+    }
+    
     if (existingUser) {
       return res.status(400).json({ error: 'Username taken' });
     }
@@ -257,15 +269,57 @@ app.post('/register', async (req, res) => {
 
     // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
-    await run(
-      'INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, role, displayName]
-    );
+    
+    // Try direct Supabase insert first as fallback
+    let directInsertResult = null;
+    let runError = null;
+    
+    try {
+      console.log('Attempting to insert user with run()...');
+      await run(
+        'INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)',
+        [username, hashedPassword, role, displayName]
+      );
+      console.log('User inserted successfully with run()');
+    } catch (error) {
+      runError = error;
+      console.error('Error using run() to insert user:', error);
+      
+      // Try direct Supabase insert as fallback
+      try {
+        console.log('Attempting direct Supabase insert...');
+        const { data, error: supabaseError } = await supabase.from('users').insert({
+          username: username,
+          password: hashedPassword,
+          role: role,
+          name: displayName
+        }).select();
+        
+        if (supabaseError) {
+          console.error('Direct Supabase insert failed:', supabaseError);
+          throw supabaseError;
+        }
+        
+        directInsertResult = data;
+        console.log('User inserted successfully with direct Supabase:', data);
+      } catch (supabaseError) {
+        console.error('Direct Supabase insert also failed:', supabaseError);
+        return res.status(500).json({ 
+          error: 'Failed to create user', 
+          run_error: runError.message,
+          supabase_error: supabaseError.message 
+        });
+      }
+    }
 
-    res.status(201).json({ message: 'User registered' });
+    res.status(201).json({ 
+      message: 'User registered',
+      direct_insert_used: !!directInsertResult,
+      direct_insert_result: directInsertResult
+    });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });
 
