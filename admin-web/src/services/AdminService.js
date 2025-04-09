@@ -1,7 +1,10 @@
 /**
  * AdminService - Handles admin-specific API operations
  */
-import { api, getAuthConfig, loginAdmin as apiLogin } from '../utils/api';
+import { api, getAuthConfig, loginAdmin as apiLogin, API_URL } from '../utils/api';
+
+// Log service initialization
+console.log('AdminService initialized, using API at:', API_URL);
 
 class AdminService {
   /**
@@ -11,7 +14,15 @@ class AdminService {
    * @returns {Promise} - The login response
    */
   static async login(username, password) {
-    return apiLogin(username, password);
+    try {
+      console.log(`AdminService: Attempting login for user: ${username}`);
+      const result = await apiLogin(username, password);
+      console.log('AdminService: Login successful');
+      return result;
+    } catch (error) {
+      console.error('AdminService: Login failed:', error.message);
+      throw error;
+    }
   }
 
   /**
@@ -20,11 +31,35 @@ class AdminService {
    */
   static async getUsers() {
     try {
+      console.log('AdminService: Fetching users list');
       const response = await api.get('/users', getAuthConfig());
+      console.log(`AdminService: Successfully fetched ${response.data.length} users`);
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch users:', error);
-      throw error;
+      console.error('AdminService: Failed to fetch users:', error);
+      
+      // Enhanced error reporting
+      const errorDetails = {
+        endpoint: '/users',
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      };
+      
+      console.error('AdminService: User fetch error details:', errorDetails);
+      
+      // Generate more specific error message
+      let errorMessage = 'Failed to fetch users.';
+      
+      if (error.response) {
+        errorMessage += ` Server returned ${error.response.status}: ${error.response.data?.error || 'Unknown error'}`;
+      } else if (error.message) {
+        errorMessage += ` ${error.message}`;
+      }
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.details = errorDetails;
+      throw enhancedError;
     }
   }
 
@@ -35,11 +70,26 @@ class AdminService {
    */
   static async createUser(userData) {
     try {
+      console.log('AdminService: Creating new user:', userData.username);
       const response = await api.post('/users', userData, getAuthConfig());
+      console.log('AdminService: User created successfully:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Failed to create user:', error);
-      throw error;
+      console.error('AdminService: Failed to create user:', error);
+      
+      // Enhanced error reporting
+      const errorDetails = {
+        endpoint: '/users (POST)',
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      };
+      
+      console.error('AdminService: User creation error details:', errorDetails);
+      
+      const enhancedError = new Error(`Failed to create user: ${error.response?.data?.error || error.message}`);
+      enhancedError.details = errorDetails;
+      throw enhancedError;
     }
   }
 
@@ -161,16 +211,76 @@ class AdminService {
   }
 
   /**
-   * Update dashboard data for admin
+   * Get dashboard data for admin
    * @returns {Promise} - Dashboard statistics
    */
   static async getDashboardData() {
     try {
+      console.log('AdminService: Fetching dashboard data');
       const response = await api.get('/admin/dashboard', getAuthConfig());
+      console.log('AdminService: Dashboard data retrieved successfully');
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-      throw error;
+      console.error('AdminService: Failed to fetch dashboard data:', error);
+      
+      // Create enhanced error with details
+      const errorDetails = {
+        endpoint: '/admin/dashboard',
+        status: error.response?.status,
+        message: error.message,
+        data: error.response?.data
+      };
+      
+      console.error('AdminService: Dashboard data error details:', errorDetails);
+      
+      // Generate a more specific error message
+      let errorMessage = 'Failed to fetch dashboard data.';
+      
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage += ' The dashboard API endpoint may not be implemented on the server.';
+        } else {
+          errorMessage += ` Server returned ${error.response.status}: ${error.response.data?.error || 'Unknown error'}`;
+        }
+      } else if (error.message) {
+        errorMessage += ` ${error.message}`;
+      }
+      
+      const enhancedError = new Error(errorMessage);
+      enhancedError.details = errorDetails;
+      throw enhancedError;
+    }
+  }
+
+  /**
+   * Test connection to the API server
+   * @returns {Promise} - Connection test results
+   */
+  static async testConnection() {
+    try {
+      console.log('AdminService: Testing API connection to:', API_URL);
+      const startTime = Date.now();
+      const response = await api.get('/health', { timeout: 5000 });
+      const duration = Date.now() - startTime;
+      
+      console.log(`AdminService: API connection test successful. Response time: ${duration}ms`);
+      return {
+        success: true,
+        status: response.status,
+        data: response.data,
+        duration,
+        baseUrl: API_URL
+      };
+    } catch (error) {
+      console.error('AdminService: API connection test failed:', error);
+      
+      return {
+        success: false,
+        error: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        baseUrl: API_URL
+      };
     }
   }
 }

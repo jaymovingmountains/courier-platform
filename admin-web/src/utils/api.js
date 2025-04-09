@@ -3,8 +3,9 @@
  */
 import axios from 'axios';
 
-// Get the API URL from environment variables
+// Get the API URL from environment variables with clear logging
 export const API_URL = process.env.REACT_APP_API_URL || 'https://mml-platform-tau.vercel.app';
+console.log('API_URL configured as:', API_URL);
 
 // Create an axios instance with default configuration
 export const api = axios.create({
@@ -15,6 +16,9 @@ export const api = axios.create({
   },
 });
 
+// Log API configuration on startup
+console.log('API client configured with baseURL:', API_URL);
+
 /**
  * Get auth config with token
  * @param {Object} additionalHeaders - Additional headers to include
@@ -22,6 +26,9 @@ export const api = axios.create({
  */
 export const getAuthConfig = (additionalHeaders = {}) => {
   const token = localStorage.getItem('token');
+  if (!token) {
+    console.warn('getAuthConfig called but no token found in localStorage');
+  }
   return {
     headers: {
       Authorization: token ? `Bearer ${token}` : '',
@@ -40,10 +47,17 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       config.headers['x-portal'] = 'admin';
+    } else {
+      console.warn(`API request to ${config.url} made without auth token`);
+    }
+    // Log outgoing requests in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     }
     return config;
   },
   (error) => {
+    console.error('API request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -53,14 +67,30 @@ api.interceptors.request.use(
  */
 api.interceptors.response.use(
   (response) => {
+    // Log successful responses in development
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`✅ API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    }
     return response;
   },
   async (error) => {
     const originalRequest = error.config;
+    const errorDetails = {
+      url: originalRequest?.url,
+      method: originalRequest?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    };
+    
+    // Log all API errors with details
+    console.error('❌ API Error:', errorDetails);
     
     // Handle 401 Unauthorized errors (expired token)
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
+      
+      console.log('Authentication failure detected, clearing token and redirecting to login');
       
       // Clear local storage and redirect to login
       localStorage.removeItem('token');
@@ -72,24 +102,27 @@ api.interceptors.response.use(
         return Promise.reject(new Error('Your session has expired. Please log in again.'));
       }
     }
+    
+    // Handle network errors specifically
+    if (error.message === 'Network Error') {
+      console.error('Network error detected. API server may be unreachable at:', API_URL);
+      return Promise.reject(new Error(`Network error: Unable to connect to API server at ${API_URL}. Please check your internet connection and try again.`));
+    }
+
+    // Handle CORS errors which may appear as network errors
+    if (error.message.includes('CORS')) {
+      console.error('CORS error detected when connecting to:', API_URL);
+      return Promise.reject(new Error(`CORS error: The API server at ${API_URL} is not configured to accept requests from this origin. Please contact support.`));
+    }
 
     const errorMessage = getErrorMessage(error);
     
-    // Log detailed error info to console
-    console.error('API Error:', {
-      url: originalRequest?.url,
-      method: originalRequest?.method,
-      status: error.response?.status,
-      message: errorMessage,
-      data: error.response?.data,
-    });
-
     return Promise.reject(error);
   }
 );
 
 /**
- * Convert API errors to user-friendly messages
+ * Convert API errors to user-friendly messages with more details
  * @param {Error} error - Axios error object
  * @returns {string} - User-friendly error message
  */
@@ -97,47 +130,52 @@ export const getErrorMessage = (error) => {
   if (error.response) {
     // Server responded with error status code
     const { status, data } = error.response;
+    const endpoint = error.config?.url || 'unknown endpoint';
+    
+    console.log(`API error details - Status: ${status}, Endpoint: ${endpoint}, Data:`, data);
     
     // Use error message from response if available
     if (data && (data.error || data.message)) {
-      return data.error || data.message;
+      return `${data.error || data.message} (${status})`;
     }
     
     // Standard messages for common status codes
     switch (status) {
       case 400:
-        return 'Invalid request. Please check your data and try again.';
+        return `Invalid request to ${endpoint}. Please check your data and try again.`;
       case 401:
-        return 'Your session has expired. Please log in again.';
+        return `Authentication failed for ${endpoint}. Please log in again.`;
       case 403:
-        return 'You do not have permission to perform this action.';
+        return `You do not have permission to access ${endpoint}.`;
       case 404:
-        return 'The requested resource was not found.';
+        return `The requested resource at ${endpoint} was not found.`;
       case 409:
-        return 'This operation could not be completed due to a conflict.';
+        return `Operation at ${endpoint} could not be completed due to a conflict.`;
       case 422:
-        return 'Validation error. Please check your input.';
+        return `Validation error at ${endpoint}. Please check your input.`;
       case 429:
-        return 'Too many requests. Please try again later.';
+        return `Too many requests to ${endpoint}. Please try again later.`;
       case 500:
       case 502:
       case 503:
       case 504:
-        return 'Server error. Our team has been notified.';
+        return `Server error (${status}) at ${endpoint}. Our team has been notified.`;
       default:
-        return `Request failed with status code ${status}`;
+        return `Request to ${endpoint} failed with status code ${status}`;
     }
   } else if (error.request) {
     // Request was made but no response received
-    return 'No response from server. Please check your internet connection.';
+    console.error('No response received from server:', error.request);
+    return `No response from server at ${API_URL}. Please check your internet connection.`;
   } else {
     // Something happened while setting up the request
+    console.error('Error setting up request:', error.message);
     return error.message || 'An unexpected error occurred. Please try again.';
   }
 };
 
 /**
- * Handle API login for admin users
+ * Handle API login for admin users with enhanced error logging
  * @param {string} username - Username
  * @param {string} password - Password
  * @returns {Promise} - The login response with token
@@ -151,6 +189,8 @@ export const loginAdmin = async (username, password) => {
         'x-portal': 'admin',
       },
     });
+    
+    console.log('Login response status:', response.status);
     
     // Store token and user data
     if (response.data && response.data.token) {
@@ -169,10 +209,14 @@ export const loginAdmin = async (username, password) => {
             role: payload.role,
             name: payload.name
           }));
+          
+          console.log('User authenticated successfully:', payload.username);
         }
       } catch (parseError) {
         console.error('Error parsing JWT token:', parseError);
       }
+    } else {
+      console.warn('Login successful but no token received:', response.data);
     }
     
     return response.data;
@@ -183,6 +227,20 @@ export const loginAdmin = async (username, password) => {
       data: error.response?.data,
       message: error.message
     });
+    
+    // Provide more specific error message based on the error type
+    if (error.response) {
+      const { status, data } = error.response;
+      if (status === 401) {
+        throw new Error('Invalid username or password. Please try again.');
+      } else if (status === 403) {
+        throw new Error('You do not have permission to access the admin portal.');
+      } else if (data?.error) {
+        throw new Error(`Login failed: ${data.error}`);
+      }
+    } else if (error.message === 'Network Error') {
+      throw new Error(`Cannot connect to server at ${API_URL}. Please check your internet connection.`);
+    }
     
     throw error;
   }

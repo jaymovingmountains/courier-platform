@@ -5,6 +5,7 @@ import axios from 'axios';
 import { API_URL } from '../utils/api';
 import './Dashboard.css';
 import ShipmentModal from '../components/ShipmentModal';
+import AdminService from '../services/AdminService';
 
 const Dashboard = () => {
   const [shipments, setShipments] = useState([]);
@@ -14,34 +15,89 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState(null);
+  const [testingConnection, setTestingConnection] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        console.log('Fetching dashboard data from:', API_URL);
         setLoading(true);
         const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No authentication token found');
+          setError('Authentication token is missing. Please log in again.');
+          setLoading(false);
+          return;
+        }
+        
         const headers = { Authorization: `Bearer ${token}` };
         
         // Use API_URL instead of hardcoded localhost
-        const [shipmentsRes, usersRes, vehiclesRes] = await Promise.all([
-          axios.get(`${API_URL}/shipments`, { headers }),
-          axios.get(`${API_URL}/users`, { headers }),
-          axios.get(`${API_URL}/vehicles`, { headers })
-        ]);
-
-        setShipments(shipmentsRes.data);
-        setUsers(usersRes.data);
-        setVehicles(vehiclesRes.data);
-        setError(null);
-      } catch (err) {
-        setError('Failed to fetch dashboard data. Please try again.');
-        console.error('Dashboard data error:', err);
+        console.log('Making API requests to fetch shipments, users, and vehicles');
+        
+        try {
+          const shipmentsRes = await axios.get(`${API_URL}/shipments`, { headers });
+          console.log('Shipments API response:', shipmentsRes.status);
+          
+          const usersRes = await axios.get(`${API_URL}/users`, { headers });
+          console.log('Users API response:', usersRes.status);
+          
+          const vehiclesRes = await axios.get(`${API_URL}/vehicles`, { headers });
+          console.log('Vehicles API response:', vehiclesRes.status);
+          
+          // Process data
+          const shipments = shipmentsRes.data || [];
+          const users = usersRes.data || [];
+          const vehicles = vehiclesRes.data || [];
+          
+          console.log(`Dashboard data fetched successfully: ${shipments.length} shipments, ${users.length} users, ${vehicles.length} vehicles`);
+          
+          // Calculate stats
+          const drivers = users.filter(user => user.role === 'driver').length;
+          
+          // Calculate total revenue from completed shipments
+          const totalRevenue = shipments
+            .filter(s => s.status === 'delivered')
+            .reduce((sum, shipment) => sum + (parseFloat(shipment.quote_amount) || 0), 0);
+          
+          setShipments(shipments);
+          setUsers(users);
+          setVehicles(vehicles);
+          setError(null);
+        } catch (apiError) {
+          console.error('API request failed:', apiError);
+          const status = apiError.response?.status;
+          const errorData = apiError.response?.data;
+          
+          let detailedError = `API Error (${status || 'Unknown'}): `;
+          
+          if (errorData?.error) {
+            detailedError += errorData.error;
+          } else if (apiError.message) {
+            detailedError += apiError.message;
+          } else {
+            detailedError += 'Unknown error occurred';
+          }
+          
+          setError(`Failed to fetch dashboard data. ${detailedError}`);
+          console.error('Detailed API error:', {
+            message: apiError.message,
+            status: status,
+            data: errorData,
+            config: apiError.config?.url
+          });
+        }
+      } catch (error) {
+        console.error('Dashboard data fetch error:', error);
+        setError(`Failed to load dashboard data: ${error.message}`);
       } finally {
         setLoading(false);
       }
     };
-
+    
     fetchDashboardData();
   }, []);
 
@@ -170,6 +226,29 @@ const Dashboard = () => {
     useSortBy
   );
 
+  // Add function to test API connection
+  const testApiConnection = async () => {
+    try {
+      setTestingConnection(true);
+      setConnectionStatus(null);
+      
+      console.log('Testing API connection to:', API_URL);
+      const result = await AdminService.testConnection();
+      
+      console.log('Connection test result:', result);
+      setConnectionStatus(result);
+    } catch (error) {
+      console.error('Error during connection test:', error);
+      setConnectionStatus({
+        success: false,
+        error: error.message,
+        baseUrl: API_URL
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="dashboard-container">
@@ -290,6 +369,27 @@ const Dashboard = () => {
           users={users}
           vehicles={vehicles}
         />
+      )}
+
+      {connectionStatus && (
+        <div className={`connection-status ${connectionStatus.success ? 'success' : 'failure'}`}>
+          <h3>Connection Test Results:</h3>
+          <p>API URL: {connectionStatus.baseUrl}</p>
+          <p>Status: {connectionStatus.success ? 'Success' : 'Failed'}</p>
+          {connectionStatus.status && <p>HTTP Status: {connectionStatus.status}</p>}
+          {connectionStatus.duration && <p>Response Time: {connectionStatus.duration}ms</p>}
+          {connectionStatus.error && <p>Error: {connectionStatus.error}</p>}
+          {connectionStatus.data && <p>Response Data: {JSON.stringify(connectionStatus.data)}</p>}
+          <p>
+            <strong>Troubleshooting Tips:</strong>
+          </p>
+          <ul>
+            <li>Verify the API server is running at {API_URL}</li>
+            <li>Check for CORS issues if the API is on a different domain</li>
+            <li>Ensure your auth token is valid in localStorage</li>
+            <li>Check browser console for detailed error logs</li>
+          </ul>
+        </div>
       )}
     </div>
   );
