@@ -18,11 +18,11 @@ class BuildConfiguration {
     var baseURL: String {
         switch self.environment {
         case .development:
-            return "http://localhost:3001"
+            return "https://mml-platform-tau.vercel.app"
         case .staging:
-            return "http://localhost:3001"
+            return "https://mml-platform-tau.vercel.app"
         case .production:
-            return "http://localhost:3001"
+            return "https://mml-platform-tau.vercel.app"
         }
     }
     

@@ -2,7 +2,7 @@ import Foundation
 
 struct APIConstants {
     // Base URL for API connections
-    static let baseURL = "http://localhost:3001"
+    static let baseURL = "https://mml-platform-tau.vercel.app"
     
     // Authentication endpoints
     static let loginEndpoint = "/login"
