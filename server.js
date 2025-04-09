@@ -218,6 +218,9 @@ app.use(jwt({
     '/login',
     '/register',
     '/',
+    '/health',
+    '/api/public-test-db',
+    '/api/test-supabase',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
@@ -2886,6 +2889,84 @@ app.get('/api/test-db', async (req, res) => {
       status: 'error', 
       message: 'Database test failed',
       error: error.message
+    });
+  }
+});
+
+// Add this public endpoint before the JWT middleware
+// Public test endpoint for Supabase connectivity (no auth required)
+app.get('/api/public-test-db', async (req, res) => {
+  try {
+    console.log('Testing Supabase public connection...');
+    console.log('Supabase URL configured:', !!process.env.SUPABASE_URL);
+    console.log('Supabase Key configured:', !!process.env.SUPABASE_KEY);
+    
+    // Try to query the Supabase database
+    const { data, error } = await supabase.from('users').select('count');
+    
+    if (error) {
+      console.error('Supabase connection test failed:', error);
+      return res.status(500).json({ 
+        status: 'error', 
+        message: 'Database connection failed',
+        error: error.message,
+        errorCode: error.code,
+        hint: error.code === 'PGRST301' ? 'You may be using an anon key instead of service_role key' : null,
+        supabaseUrl: process.env.SUPABASE_URL ? 'Configured' : 'Missing'
+      });
+    }
+    
+    res.json({ 
+      status: 'ok', 
+      message: 'Supabase connection successful',
+      data: data,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Database test failed:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database test failed',
+      error: error.message
+    });
+  }
+});
+
+// Add a test Supabase endpoint
+app.get('/api/test-supabase', async (req, res) => {
+  try {
+    console.log('Testing Supabase connection...');
+    
+    if (!supabase) {
+      return res.status(500).json({ 
+        error: 'Supabase client not initialized',
+        message: 'Check your environment variables: SUPABASE_URL and SUPABASE_KEY'
+      });
+    }
+    
+    // Simple test query
+    const { data, error } = await supabase.from('users').select('*').limit(1);
+    
+    if (error) {
+      console.error('❌ Supabase connection failed:', error.message);
+      return res.status(500).json({ 
+        error: 'Supabase connection failed', 
+        message: error.message,
+        details: error
+      });
+    }
+    
+    return res.status(200).json({ 
+      success: true,
+      message: 'Supabase connection successful!',
+      data: data
+    });
+  } catch (error) {
+    console.error('❌ Unexpected error:', error.message);
+    return res.status(500).json({ 
+      error: 'Unexpected error', 
+      message: error.message,
+      stack: error.stack
     });
   }
 });
