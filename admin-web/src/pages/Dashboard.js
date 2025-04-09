@@ -17,6 +17,11 @@ const Dashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [testingConnection, setTestingConnection] = useState(false);
+  const [availableEndpoints, setAvailableEndpoints] = useState({
+    users: false,
+    shipments: false,
+    vehicles: false
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,61 +39,80 @@ const Dashboard = () => {
         }
         
         const headers = { Authorization: `Bearer ${token}` };
+        const endpointsStatus = { users: false, shipments: false, vehicles: false };
+        let errorMessage = '';
         
-        // Use API_URL instead of hardcoded localhost
-        console.log('Making API requests to fetch shipments, users, and vehicles');
-        
+        // Fetching users (this should work if /list-users is available)
         try {
-          const shipmentsRes = await axios.get(`${API_URL}/shipments`, { headers });
-          console.log('Shipments API response:', shipmentsRes.status);
-          
-          const usersRes = await axios.get(`${API_URL}/users`, { headers });
-          console.log('Users API response:', usersRes.status);
-          
-          const vehiclesRes = await axios.get(`${API_URL}/vehicles`, { headers });
-          console.log('Vehicles API response:', vehiclesRes.status);
-          
-          // Process data
-          const shipments = shipmentsRes.data || [];
-          const users = usersRes.data || [];
-          const vehicles = vehiclesRes.data || [];
-          
-          console.log(`Dashboard data fetched successfully: ${shipments.length} shipments, ${users.length} users, ${vehicles.length} vehicles`);
-          
-          // Calculate stats
-          const drivers = users.filter(user => user.role === 'driver').length;
-          
-          // Calculate total revenue from completed shipments
-          const totalRevenue = shipments
-            .filter(s => s.status === 'delivered')
-            .reduce((sum, shipment) => sum + (parseFloat(shipment.quote_amount) || 0), 0);
-          
-          setShipments(shipments);
-          setUsers(users);
-          setVehicles(vehicles);
-          setError(null);
-        } catch (apiError) {
-          console.error('API request failed:', apiError);
-          const status = apiError.response?.status;
-          const errorData = apiError.response?.data;
-          
-          let detailedError = `API Error (${status || 'Unknown'}): `;
-          
-          if (errorData?.error) {
-            detailedError += errorData.error;
-          } else if (apiError.message) {
-            detailedError += apiError.message;
-          } else {
-            detailedError += 'Unknown error occurred';
+          console.log('Attempting to fetch users data...');
+          // Try /users first
+          let usersData = [];
+          try {
+            const usersRes = await axios.get(`${API_URL}/users`, { headers });
+            console.log('Users API response:', usersRes.status);
+            usersData = usersRes.data || [];
+            endpointsStatus.users = true;
+          } catch (usersError) {
+            console.log('Falling back to /list-users endpoint...');
+            // Fall back to /list-users if /users fails
+            try {
+              const listUsersRes = await axios.get(`${API_URL}/list-users`, { headers });
+              console.log('List-users API response:', listUsersRes.status);
+              usersData = listUsersRes.data?.users || listUsersRes.data || [];
+              endpointsStatus.users = true;
+            } catch (listUsersError) {
+              console.error('Both /users and /list-users endpoints failed:', listUsersError);
+              errorMessage += 'Failed to fetch users data. ';
+            }
           }
           
-          setError(`Failed to fetch dashboard data. ${detailedError}`);
-          console.error('Detailed API error:', {
-            message: apiError.message,
-            status: status,
-            data: errorData,
-            config: apiError.config?.url
-          });
+          setUsers(usersData);
+          console.log(`Successfully fetched ${usersData.length} users`);
+        } catch (err) {
+          console.error('Error fetching users:', err);
+          errorMessage += 'Failed to fetch users data. ';
+        }
+        
+        // Attempting to fetch shipments data
+        try {
+          console.log('Attempting to fetch shipments data...');
+          const shipmentsRes = await axios.get(`${API_URL}/shipments`, { headers });
+          console.log('Shipments API response:', shipmentsRes.status);
+          const shipmentsData = shipmentsRes.data || [];
+          setShipments(shipmentsData);
+          endpointsStatus.shipments = true;
+          console.log(`Successfully fetched ${shipmentsData.length} shipments`);
+        } catch (err) {
+          console.log('Shipments endpoint not available:', err.message);
+          // Use empty array for shipments if endpoint doesn't exist
+          setShipments([]);
+        }
+        
+        // Attempting to fetch vehicles data
+        try {
+          console.log('Attempting to fetch vehicles data...');
+          const vehiclesRes = await axios.get(`${API_URL}/vehicles`, { headers });
+          console.log('Vehicles API response:', vehiclesRes.status);
+          const vehiclesData = vehiclesRes.data || [];
+          setVehicles(vehiclesData);
+          endpointsStatus.vehicles = true;
+          console.log(`Successfully fetched ${vehiclesData.length} vehicles`);
+        } catch (err) {
+          console.log('Vehicles endpoint not available:', err.message);
+          // Use empty array for vehicles if endpoint doesn't exist
+          setVehicles([]);
+        }
+        
+        // Update available endpoints status
+        setAvailableEndpoints(endpointsStatus);
+        
+        // Set error if none of the endpoints are available
+        if (!endpointsStatus.users && !endpointsStatus.shipments && !endpointsStatus.vehicles) {
+          setError('No data available. The API server may not have the required endpoints implemented.');
+        } else if (errorMessage) {
+          setError(`Limited data available. ${errorMessage}`);
+        } else {
+          setError(null);
         }
       } catch (error) {
         console.error('Dashboard data fetch error:', error);
@@ -131,6 +155,18 @@ const Dashboard = () => {
       totalDrivers: users.filter(u => u.role === 'driver').length
     };
   }, [shipments, users]);
+
+  // Get recent shipments if available
+  const recentShipments = availableEndpoints.shipments 
+    ? [...shipments]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 10)
+    : [];
+
+  // Calculate total revenue from completed shipments
+  const totalRevenue = shipments
+    .filter(s => s.status === 'delivered')
+    .reduce((sum, shipment) => sum + (parseFloat(shipment.quote_amount) || 0), 0);
 
   // Define table columns
   const columns = useMemo(
@@ -220,7 +256,7 @@ const Dashboard = () => {
   } = useTable(
     {
       columns,
-      data: shipments
+      data: recentShipments
     },
     useGlobalFilter,
     useSortBy
