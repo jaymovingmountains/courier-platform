@@ -200,6 +200,43 @@ app.post('/debug/create-test-shipper', async (req, res) => {
   }
 });
 
+// Special debug route to create a test admin (before JWT middleware)
+app.post('/debug/create-test-admin', async (req, res) => {
+  try {
+    console.log('Creating test admin user...');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    // Try direct Supabase insert
+    const { data, error } = await supabase.from('users').insert({
+      username: 'testadmin',
+      password: hashedPassword,
+      role: 'admin',
+      name: 'Test Admin'
+    }).select();
+    
+    if (error) {
+      console.error('Error creating test admin with direct Supabase insert:', error);
+      return res.status(500).json({ 
+        error: 'Failed to create test admin', 
+        details: error.message 
+      });
+    }
+    
+    console.log('Test admin created successfully with direct Supabase insert:', data);
+    res.json({ 
+      message: 'Test admin created successfully',
+      user: {
+        username: 'testadmin',
+        role: 'admin',
+        name: 'Test Admin'
+      }
+    });
+  } catch (error) {
+    console.error('Error creating test admin:', error);
+    res.status(500).json({ error: 'Failed to create test admin', details: error.message });
+  }
+});
+
 // JWT middleware
 app.use(jwt({
   secret: JWT_SECRET,
@@ -223,6 +260,7 @@ app.use(jwt({
     '/api/test-supabase',
     '/api/debug-users',
     '/admin/setup',
+    '/debug/create-test-admin',
     { url: /^\/api\/public.*/, methods: ['GET'] }
   ]
 }));
