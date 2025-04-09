@@ -1345,13 +1345,85 @@ app.delete('/addresses/:id', authorize(['shipper']), async (req, res) => {
 // List all users (Admin only)
 app.get('/users', authorize(['admin']), async (req, res) => {
   try {
-    const users = await all(
-      'SELECT id, username, role, name, email, phone FROM users',
-      []
-    );
-    res.json(users);
+    console.log('Fetching users list with Supabase...');
+    
+    // Use Supabase query to get users
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, username, role, name, email, phone');
+    
+    if (error) {
+      console.error('Error fetching users from Supabase:', error);
+      throw error;
+    }
+    
+    res.json(users || []);
   } catch (error) {
     console.error('Get users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create new user (Admin only)
+app.post('/users', authorize(['admin']), async (req, res) => {
+  try {
+    console.log('Creating new user with Supabase...');
+    const { username, password, role, name, email, phone } = req.body;
+    
+    // Validate required fields
+    if (!username || !password || !role) {
+      return res.status(400).json({ error: 'Username, password, and role are required' });
+    }
+    
+    // Validate role
+    if (!['admin', 'driver', 'shipper'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be admin, driver, or shipper' });
+    }
+    
+    // Check if username already exists
+    const { data: existingUser, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .single();
+      
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking for existing user:', checkError);
+      throw checkError;
+    }
+    
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user in Supabase
+    const { data: newUser, error: createError } = await supabase
+      .from('users')
+      .insert({
+        username,
+        password: hashedPassword,
+        role,
+        name: name || username,
+        email: email || null,
+        phone: phone || null
+      })
+      .select();
+    
+    if (createError) {
+      console.error('Error creating new user in Supabase:', createError);
+      throw createError;
+    }
+    
+    // Return user without password
+    const userResponse = newUser[0];
+    delete userResponse.password;
+    
+    res.status(201).json(userResponse);
+  } catch (error) {
+    console.error('Create user error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -2536,10 +2608,22 @@ app.put('/users/profile', jwt({ secret: JWT_SECRET, algorithms: ['HS256'] }), as
 // Get user by ID (Admin only)
 app.get('/users/:id', authorize(['admin']), async (req, res) => {
   try {
-    const user = await get(
-      'SELECT id, username, role, name, email, phone FROM users WHERE id = ?',
-      [req.params.id]
-    );
+    console.log(`Fetching user with ID ${req.params.id} using Supabase...`);
+    
+    // Use Supabase query to get the user
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, role, name, email, phone')
+      .eq('id', req.params.id)
+      .single();
+    
+    if (error) {
+      console.error(`Error fetching user with ID ${req.params.id}:`, error);
+      if (error.code === 'PGRST116') {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      throw error;
+    }
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -2555,86 +2639,83 @@ app.get('/users/:id', authorize(['admin']), async (req, res) => {
 // Update user by ID (Admin only)
 app.put('/users/:id', authorize(['admin']), async (req, res) => {
   try {
+    console.log(`Updating user with ID ${req.params.id} using Supabase...`);
     const { username, password, role, name, email, phone } = req.body;
     
     // Check if user exists
-    const user = await get('SELECT id FROM users WHERE id = ?', [req.params.id]);
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (userError && userError.code !== 'PGRST116') {
+      console.error(`Error checking if user with ID ${req.params.id} exists:`, userError);
+      throw userError;
+    }
+    
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
     // Check if username is being changed and if it's already taken
     if (username) {
-      const existingUser = await get(
-        'SELECT id FROM users WHERE username = ? AND id != ?', 
-        [username, req.params.id]
-      );
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username)
+        .neq('id', req.params.id)
+        .single();
+        
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking if username is taken:', checkError);
+        throw checkError;
+      }
       
       if (existingUser) {
         return res.status(400).json({ error: 'Username already taken' });
       }
     }
     
-    // Build update query dynamically
-    const updates = [];
-    const values = [];
+    // Prepare update object
+    const updateData = {};
     
-    if (username) {
-      updates.push('username = ?');
-      values.push(username);
-    }
-    
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      updates.push('password = ?');
-      values.push(hashedPassword);
-    }
-    
+    if (username) updateData.username = username;
     if (role) {
       if (!['shipper', 'admin', 'driver'].includes(role)) {
         return res.status(400).json({ error: 'Invalid role' });
       }
-      updates.push('role = ?');
-      values.push(role);
+      updateData.role = role;
+    }
+    if (name !== undefined) updateData.name = name;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    
+    // Handle password separately if provided
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
     }
     
-    if (name !== undefined) {
-      updates.push('name = ?');
-      values.push(name);
-    }
-    
-    if (email !== undefined) {
-      updates.push('email = ?');
-      values.push(email);
-    }
-    
-    if (phone !== undefined) {
-      updates.push('phone = ?');
-      values.push(phone);
-    }
-    
-    if (updates.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
     
-    // Add id to values array
-    values.push(req.params.id);
-    
-    // Update user
-    await run(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-      values
-    );
-    
-    // Get updated user data
-    const updatedUser = await get(
-      'SELECT id, username, role, name, email, phone FROM users WHERE id = ?',
-      [req.params.id]
-    );
+    // Update user in Supabase
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select('id, username, role, name, email, phone');
+      
+    if (updateError) {
+      console.error(`Error updating user with ID ${req.params.id}:`, updateError);
+      throw updateError;
+    }
     
     res.json({ 
       message: 'User updated successfully',
-      user: updatedUser
+      user: updatedUser[0]
     });
   } catch (error) {
     console.error('Update user error:', error);
@@ -2645,19 +2726,39 @@ app.put('/users/:id', authorize(['admin']), async (req, res) => {
 // Delete user by ID (Admin only)
 app.delete('/users/:id', authorize(['admin']), async (req, res) => {
   try {
-    // Check if user exists
-    const user = await get('SELECT id, role FROM users WHERE id = ?', [req.params.id]);
+    console.log(`Deleting user with ID ${req.params.id} using Supabase...`);
+    
+    // Check if user exists and is not an admin
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', req.params.id)
+      .single();
+      
+    if (userError && userError.code !== 'PGRST116') {
+      console.error(`Error checking if user with ID ${req.params.id} exists:`, userError);
+      throw userError;
+    }
+    
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    // Prevent deleting admin users 
+    // Prevent deleting admin users
     if (user.role === 'admin') {
       return res.status(403).json({ error: 'Cannot delete admin users' });
     }
     
-    // Delete user
-    await run('DELETE FROM users WHERE id = ?', [req.params.id]);
+    // Delete user from Supabase
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id);
+      
+    if (deleteError) {
+      console.error(`Error deleting user with ID ${req.params.id}:`, deleteError);
+      throw deleteError;
+    }
     
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -2760,8 +2861,18 @@ app.put('/api/shipments/:id/mark-paid', authorize(['admin']), async (req, res) =
 // Special endpoint to check if admin setup is allowed
 app.get('/admin/setup/status', async (req, res) => {
   try {
+    console.log('Checking admin setup status with Supabase...');
+    
     // Check if any admin users already exist
-    const existingAdmins = await all('SELECT id FROM users WHERE role = ?', ['admin']);
+    const { data: existingAdmins, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'admin');
+    
+    if (error) {
+      console.error('Error checking for existing admins:', error);
+      throw error;
+    }
     
     // Setup is allowed only if no admins exist
     const canSetup = !existingAdmins || existingAdmins.length === 0;
@@ -2781,8 +2892,18 @@ app.get('/admin/setup/status', async (req, res) => {
 // Special endpoint to create the first admin account (can only be used when no admins exist)
 app.post('/admin/setup', async (req, res) => {
   try {
+    console.log('Setting up first admin account with Supabase...');
+    
     // Check if any admin users already exist
-    const existingAdmins = await all('SELECT id FROM users WHERE role = ?', ['admin']);
+    const { data: existingAdmins, error: checkError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'admin');
+    
+    if (checkError) {
+      console.error('Error checking for existing admins:', checkError);
+      throw checkError;
+    }
     
     if (existingAdmins && existingAdmins.length > 0) {
       console.log('Admin setup attempted but admins already exist');
@@ -2800,7 +2921,17 @@ app.post('/admin/setup', async (req, res) => {
     }
     
     // Check if username is already taken
-    const existingUser = await get('SELECT id FROM users WHERE username = ?', [username]);
+    const { data: existingUser, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .single();
+      
+    if (userError && userError.code !== 'PGRST116') {
+      console.error('Error checking if username exists:', userError);
+      throw userError;
+    }
+    
     if (existingUser) {
       return res.status(409).json({ error: 'Username already exists' });
     }
@@ -2809,10 +2940,20 @@ app.post('/admin/setup', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const displayName = name || username;
     
-    await run(
-      'INSERT INTO users (username, password, role, name) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, 'admin', displayName]
-    );
+    const { data: newAdmin, error: createError } = await supabase
+      .from('users')
+      .insert({
+        username,
+        password: hashedPassword,
+        role: 'admin',
+        name: displayName
+      })
+      .select();
+      
+    if (createError) {
+      console.error('Error creating first admin account:', createError);
+      throw createError;
+    }
     
     console.log(`✅ First admin account created: ${username}`);
     res.status(201).json({ 
@@ -2829,11 +2970,11 @@ app.post('/admin/setup', async (req, res) => {
 // Admin endpoint to manage users (requires admin role)
 app.get('/admin/users', authorize(['admin']), async (req, res) => {
   try {
-    // Get all users from database
-    const users = await all('SELECT id, username, role, name FROM users');
-    res.json(users);
+    console.log('Redirecting to /users endpoint...');
+    // Just redirect to the main /users endpoint
+    return res.redirect('/users');
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Error redirecting to /users:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
